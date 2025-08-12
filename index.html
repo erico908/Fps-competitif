@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<title>Déplacement FPS - Ciel bleu léger</title>
+<title>Mouvements FPS corrigés (Z/S pour avancer/reculer)</title>
 <style>
   body { margin: 0; overflow: hidden; }
   canvas { display: block; }
@@ -22,7 +22,7 @@ animate();
 
 function init() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb); // Ciel bleu clair
+  scene.background = new THREE.Color(0x87ceeb); // ciel bleu clair
 
   camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
   camera.position.set(0, 2, 5);
@@ -43,19 +43,18 @@ function init() {
   floor.rotation.x = -Math.PI/2;
   scene.add(floor);
 
-  // Clavier
+  // Gestion du clavier
   document.addEventListener('keydown', e => keys[e.code] = true);
   document.addEventListener('keyup', e => keys[e.code] = false);
 
-  // Souris libre sans clic
+  // Souris : rotation caméra (sans clic)
   document.addEventListener('mousemove', e => {
-    yaw -= e.movementX * 0.002;
-    pitch -= e.movementY * 0.002;
+    yaw -= e.movementX * 0.002;        // tourner à gauche/droite
+    pitch -= e.movementY * 0.002;      // tourner en haut/bas
+    // Limiter le pitch entre -90° et +90°
     pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-    camera.rotation.set(pitch, yaw, 0);
   });
 
-  // Resize
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
@@ -66,23 +65,40 @@ function init() {
 function animate() {
   requestAnimationFrame(animate);
 
+  // Appliquer la rotation calculée à la caméra
+  camera.rotation.set(pitch, yaw, 0);
+
   let speed = 0.2;
-  let forward = (keys["KeyW"] ? 1 : 0) - (keys["KeyS"] ? 1 : 0);
-  let strafe = (keys["KeyD"] ? 1 : 0) - (keys["KeyA"] ? 1 : 0);
 
-  let forwardVec = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(forward * speed);
-  let strafeVec = new THREE.Vector3(Math.sin(yaw + Math.PI/2), 0, Math.cos(yaw + Math.PI/2)).multiplyScalar(strafe * speed);
-  camera.position.add(forwardVec);
-  camera.position.add(strafeVec);
+  // Calculer le vecteur avant en XZ selon yaw
+  let forwardDir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+  // Calculer le vecteur droite en XZ selon yaw
+  let rightDir = new THREE.Vector3(Math.sin(yaw + Math.PI/2), 0, Math.cos(yaw + Math.PI/2));
 
+  // Déplacements selon touches (Z/S pour avant/arrière, Q/D pour gauche/droite)
+  let moveDir = new THREE.Vector3();
+
+  if(keys["KeyZ"]) moveDir.add(forwardDir);
+  if(keys["KeyS"]) moveDir.add(forwardDir.clone().negate());
+  if(keys["KeyD"]) moveDir.add(rightDir);
+  if(keys["KeyQ"]) moveDir.add(rightDir.clone().negate());
+
+  moveDir.normalize(); // pour éviter de bouger plus vite en diagonale
+  moveDir.multiplyScalar(speed);
+
+  camera.position.add(moveDir);
+
+  // Gestion du saut (espace)
   if(onGround && keys["Space"]) {
     velocityY = 0.3;
     onGround = false;
   }
+
+  // Gravité simple
   velocityY -= 0.01;
   camera.position.y += velocityY;
 
-  if(camera.position.y <= 2) {
+  if(camera.position.y <= 2) { // sol à y=2
     camera.position.y = 2;
     velocityY = 0;
     onGround = true;
@@ -93,6 +109,7 @@ function animate() {
 </script>
 </body>
 </html>
+
 
 
 
