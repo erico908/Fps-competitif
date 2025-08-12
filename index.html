@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Déplacement test simple</title>
+<title>Déplacement simple avec QSDZ</title>
 <style>
   body { margin: 0; overflow: hidden; background: #222; color: white; }
   #keyDisplay {
@@ -20,7 +20,7 @@
 </head>
 <body>
 
-<div id="keyDisplay">Appuie sur Z/S</div>
+<div id="keyDisplay">Appuie sur Z/S/Q/D</div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
 
@@ -29,6 +29,8 @@
 
   let moveForward = false;
   let moveBackward = false;
+  let moveLeft = false;
+  let moveRight = false;
 
   let camera, scene, renderer;
   let prevTime = performance.now();
@@ -57,25 +59,45 @@
 
     document.addEventListener('keydown', function(event) {
       const key = event.key.toLowerCase();
-      if(key === 'z') {
-        moveForward = true;
-        keyDisplay.textContent = "Z pressé";
-      }
-      if(key === 's') {
-        moveBackward = true;
-        keyDisplay.textContent = "S pressé";
+      switch(key) {
+        case 'z':
+          moveForward = true;
+          keyDisplay.textContent = "Z pressé";
+          break;
+        case 's':
+          moveBackward = true;
+          keyDisplay.textContent = "S pressé";
+          break;
+        case 'q':
+          moveLeft = true;
+          keyDisplay.textContent = "Q pressé";
+          break;
+        case 'd':
+          moveRight = true;
+          keyDisplay.textContent = "D pressé";
+          break;
       }
     });
 
     document.addEventListener('keyup', function(event) {
       const key = event.key.toLowerCase();
-      if(key === 'z') {
-        moveForward = false;
-        keyDisplay.textContent = "Z relâché";
-      }
-      if(key === 's') {
-        moveBackward = false;
-        keyDisplay.textContent = "S relâché";
+      switch(key) {
+        case 'z':
+          moveForward = false;
+          keyDisplay.textContent = "Z relâché";
+          break;
+        case 's':
+          moveBackward = false;
+          keyDisplay.textContent = "S relâché";
+          break;
+        case 'q':
+          moveLeft = false;
+          keyDisplay.textContent = "Q relâché";
+          break;
+        case 'd':
+          moveRight = false;
+          keyDisplay.textContent = "D relâché";
+          break;
       }
     });
 
@@ -92,11 +114,24 @@
     const time = performance.now();
     const delta = (time - prevTime)/1000;
 
-    velocity.z = 0;
-    if(moveForward) velocity.z = -5;
-    if(moveBackward) velocity.z = 5;
+    velocity.set(0, 0, 0);
 
-    camera.position.z += velocity.z * delta;
+    if(moveForward) velocity.z -= 5;
+    if(moveBackward) velocity.z += 5;
+    if(moveLeft) velocity.x -= 5;
+    if(moveRight) velocity.x += 5;
+
+    // Déplacement en fonction de la rotation de la caméra
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+    direction.y = 0;
+    direction.normalize();
+
+    const right = new THREE.Vector3();
+    right.crossVectors(camera.up, direction).normalize();
+
+    camera.position.add(direction.multiplyScalar(velocity.z * delta));
+    camera.position.add(right.multiplyScalar(velocity.x * delta));
 
     prevTime = time;
 
@@ -109,5 +144,6 @@
 
 </body>
 </html>
+
 
 
