@@ -49,9 +49,8 @@ function init() {
 
   // Souris : rotation caméra (sans clic)
   document.addEventListener('mousemove', e => {
-    yaw -= e.movementX * 0.002;        // tourner à gauche/droite
-    pitch -= e.movementY * 0.002;      // tourner en haut/bas
-    // Limiter le pitch entre -90° et +90°
+    yaw -= e.movementX * 0.002;
+    pitch -= e.movementY * 0.002;
     pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
   });
 
@@ -65,40 +64,35 @@ function init() {
 function animate() {
   requestAnimationFrame(animate);
 
-  // Appliquer la rotation calculée à la caméra
   camera.rotation.set(pitch, yaw, 0);
 
   let speed = 0.2;
 
-  // Calculer le vecteur avant en XZ selon yaw
   let forwardDir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
-  // Calculer le vecteur droite en XZ selon yaw
   let rightDir = new THREE.Vector3(Math.sin(yaw + Math.PI/2), 0, Math.cos(yaw + Math.PI/2));
 
-  // Déplacements selon touches (Z/S pour avant/arrière, Q/D pour gauche/droite)
   let moveDir = new THREE.Vector3();
 
-  if(keys["KeyZ"]) moveDir.add(forwardDir);
+  // Ici on accepte W et Z pour avancer (QWERTY/AZERTY)
+  if(keys["KeyZ"] || keys["KeyW"]) moveDir.add(forwardDir);
   if(keys["KeyS"]) moveDir.add(forwardDir.clone().negate());
   if(keys["KeyD"]) moveDir.add(rightDir);
   if(keys["KeyQ"]) moveDir.add(rightDir.clone().negate());
 
-  moveDir.normalize(); // pour éviter de bouger plus vite en diagonale
+  moveDir.normalize();
   moveDir.multiplyScalar(speed);
 
   camera.position.add(moveDir);
 
-  // Gestion du saut (espace)
   if(onGround && keys["Space"]) {
     velocityY = 0.3;
     onGround = false;
   }
 
-  // Gravité simple
   velocityY -= 0.01;
   camera.position.y += velocityY;
 
-  if(camera.position.y <= 2) { // sol à y=2
+  if(camera.position.y <= 2) {
     camera.position.y = 2;
     velocityY = 0;
     onGround = true;
@@ -109,8 +103,3 @@ function animate() {
 </script>
 </body>
 </html>
-
-
-
-
-
