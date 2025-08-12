@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Déplacement avec murs</title>
+<title>Déplacement avec murs corrigé</title>
 <style>
   body { margin: 0; overflow: hidden; background: #222; color: white; }
   #keyDisplay {
@@ -35,12 +35,8 @@
   let prevTime = performance.now();
   let velocity = new THREE.Vector3();
 
-  // Pour détecter collision simple avec murs
   function detectCollision(pos, walls) {
-    // pos = THREE.Vector3 position testée
-    // walls = array de THREE.Mesh (les murs)
-    const playerRadius = 0.3; // taille approximative du joueur
-
+    const playerRadius = 0.3;
     for(let wall of walls) {
       const wallBox = new THREE.Box3().setFromObject(wall);
       if(wallBox.expandByScalar(playerRadius).containsPoint(pos)) {
@@ -73,33 +69,33 @@
     light.position.set(5, 10, 7);
     scene.add(light);
 
-    // Murs (4 murs autour du sol)
+    // Murs
     const wallGeometry = new THREE.BoxGeometry(20, 3, 0.5);
     const wallMaterial = new THREE.MeshPhongMaterial({color: 0x654321});
 
     const walls = [];
 
     const wall1 = new THREE.Mesh(wallGeometry, wallMaterial);
-    wall1.position.set(0, 1.5, -10 + 0.25);  // mur arrière
+    wall1.position.set(0, 1.5, -10 + 0.25);
     scene.add(wall1);
     walls.push(wall1);
 
     const wall2 = new THREE.Mesh(wallGeometry, wallMaterial);
-    wall2.position.set(0, 1.5, 10 - 0.25); // mur avant
+    wall2.position.set(0, 1.5, 10 - 0.25);
     scene.add(wall2);
     walls.push(wall2);
 
     const wall3 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 20), wallMaterial);
-    wall3.position.set(-10 + 0.25, 1.5, 0); // mur gauche
+    wall3.position.set(-10 + 0.25, 1.5, 0);
     scene.add(wall3);
     walls.push(wall3);
 
     const wall4 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 20), wallMaterial);
-    wall4.position.set(10 - 0.25, 1.5, 0); // mur droit
+    wall4.position.set(10 - 0.25, 1.5, 0);
     scene.add(wall4);
     walls.push(wall4);
 
-    // Gestion des touches
+    // Touches
     document.addEventListener('keydown', function(event) {
       const key = event.key.toLowerCase();
       switch(key) {
@@ -126,7 +122,6 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // Sauvegarde murs dans scene pour usage dans animate
     scene.userData.walls = walls;
   }
 
@@ -134,15 +129,14 @@
     requestAnimationFrame(animate);
 
     const time = performance.now();
-    const delta = (time - prevTime)/1000;
+    const delta = (time - prevTime) / 1000;
 
     velocity.set(0, 0, 0);
-    if(moveForward) velocity.z -= 5;
-    if(moveBackward) velocity.z += 5;
-    if(moveLeft) velocity.x -= 5;
-    if(moveRight) velocity.x += 5;
+    if(moveForward) velocity.z -= 5;    // Z avancer
+    if(moveBackward) velocity.z += 5;   // S reculer
+    if(moveLeft) velocity.x -= 5;       // Q gauche
+    if(moveRight) velocity.x += 5;      // D droite
 
-    // Calcul direction et déplacement
     const direction = new THREE.Vector3();
     camera.getWorldDirection(direction);
     direction.y = 0;
@@ -151,7 +145,6 @@
     const right = new THREE.Vector3();
     right.crossVectors(camera.up, direction).normalize();
 
-    // Calcul mouvement prévu
     const moveZ = direction.clone().multiplyScalar(velocity.z * delta);
     const moveX = right.clone().multiplyScalar(velocity.x * delta);
 
@@ -159,7 +152,6 @@
     newPosition.add(moveZ);
     newPosition.add(moveX);
 
-    // Collision simple avec murs
     if(!detectCollision(newPosition, scene.userData.walls)) {
       camera.position.copy(newPosition);
     } else {
@@ -177,6 +169,7 @@
 
 </body>
 </html>
+
 
 
 
