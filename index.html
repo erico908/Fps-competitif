@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<title>FPS simple avec mouvement et rotation caméra</title>
+<title>FPS simple avec mouvement corrigé</title>
 <style>
   body { margin: 0; overflow: hidden; background: #87ceeb; }
   #info {
@@ -20,6 +20,7 @@
 let camera, scene, renderer;
 let pitchObject, yawObject;
 let velocity = new THREE.Vector3();
+let direction = new THREE.Vector3();
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
 let canJump = false;
 let prevTime = performance.now();
@@ -30,7 +31,7 @@ animate();
 
 function init() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb); // ciel bleu
+  scene.background = new THREE.Color(0x87ceeb);
 
   camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
@@ -38,7 +39,7 @@ function init() {
   pitchObject.add(camera);
 
   yawObject = new THREE.Object3D();
-  yawObject.position.y = 2; // hauteur yeux
+  yawObject.position.y = 2;
   yawObject.add(pitchObject);
 
   scene.add(yawObject);
@@ -51,7 +52,7 @@ function init() {
   floor.receiveShadow = true;
   scene.add(floor);
 
-  // Murs colorés (4 murs)
+  // Murs
   const wallGeometry = new THREE.BoxGeometry(20, 4, 0.5);
   const wallMaterial1 = new THREE.MeshPhongMaterial({color: 0x8B4513});
   const wallMaterial2 = new THREE.MeshPhongMaterial({color: 0xA0522D});
@@ -72,11 +73,10 @@ function init() {
   rightWall.position.set(10, 2, 0);
   scene.add(rightWall);
 
-  // Lumière
+  // Lumières
   const light = new THREE.DirectionalLight(0xffffff, 1);
   light.position.set(5, 10, 7);
   scene.add(light);
-
   const ambientLight = new THREE.AmbientLight(0x404040);
   scene.add(ambientLight);
 
@@ -84,7 +84,7 @@ function init() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  // Gestion pointer lock (capture souris)
+  // Pointer lock
   document.body.addEventListener('click', () => {
     if (!pointerLocked) {
       document.body.requestPointerLock();
@@ -98,7 +98,6 @@ function init() {
   // Rotation caméra
   document.addEventListener('mousemove', (event) => {
     if (!pointerLocked) return;
-
     const movementX = event.movementX || 0;
     const movementY = event.movementY || 0;
 
@@ -109,7 +108,7 @@ function init() {
     pitchObject.rotation.x = Math.max(-PI_2, Math.min(PI_2, pitchObject.rotation.x));
   });
 
-  // Gestion clavier
+  // Clavier
   document.addEventListener('keydown', onKeyDown);
   document.addEventListener('keyup', onKeyUp);
 
@@ -129,7 +128,7 @@ function onKeyDown(event) {
     case 'KeyQ': moveLeft = true; break;
     case 'KeyD': moveRight = true; break;
     case 'Space': 
-      if(canJump === true) {
+      if(canJump) {
         velocity.y += 10;
         canJump = false;
       }
@@ -154,16 +153,25 @@ function animate() {
 
   velocity.x -= velocity.x * 10.0 * delta;
   velocity.z -= velocity.z * 10.0 * delta;
-  velocity.y -= 9.8 * 5.0 * delta; // gravité
+  velocity.y -= 9.8 * 5.0 * delta;
 
-  if(moveForward) velocity.z -= 50.0 * delta;
-  if(moveBackward) velocity.z += 50.0 * delta;
-  if(moveLeft) velocity.x -= 50.0 * delta;
-  if(moveRight) velocity.x += 50.0 * delta;
+  direction.z = Number(moveForward) - Number(moveBackward);
+  direction.x = Number(moveRight) - Number(moveLeft);
+  direction.normalize();
 
-  yawObject.translateX(velocity.x * delta);
-  yawObject.translateY(velocity.y * delta);
-  yawObject.translateZ(velocity.z * delta);
+  if (moveForward || moveBackward) velocity.z -= direction.z * 50.0 * delta;
+  if (moveLeft || moveRight) velocity.x -= direction.x * 50.0 * delta;
+
+  // Calcul déplacement en fonction de la rotation Y de la caméra
+  const angle = yawObject.rotation.y;
+  const forward = new THREE.Vector3(-Math.sin(angle), 0, -Math.cos(angle));
+  const right = new THREE.Vector3(Math.cos(angle), 0, -Math.sin(angle));
+
+  // Appliquer déplacement selon direction et rotation caméra
+  yawObject.position.addScaledVector(forward, velocity.z * delta);
+  yawObject.position.addScaledVector(right, velocity.x * delta);
+
+  yawObject.position.y += velocity.y * delta;
 
   if(yawObject.position.y < 2) {
     velocity.y = 0;
