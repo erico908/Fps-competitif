@@ -1,0 +1,19 @@
+html, body {
+  margin: 0; padding: 0; height: 100%; background: #111; overflow: hidden;
+  font-family: sans-serif;
+}
+#startBtn, #regenBtn {
+  position: absolute; cursor: pointer; padding: 12px 20px; font-size: 18px;
+  border: none; border-radius: 8px;
+  background: #0f0; color: #000;
+  user-select: none;
+}
+#startBtn {
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+#regenBtn {
+  top: 20px; left: 20px;
+  background: #09f; color: #fff;
+  display: none;
+}
