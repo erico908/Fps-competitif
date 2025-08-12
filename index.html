@@ -2,14 +2,9 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<title>Déplacement FPS simple sans clic avec ciel</title>
+<title>Déplacement FPS - Ciel bleu léger</title>
 <style>
-  body { 
-    margin: 0; 
-    overflow: hidden; 
-    /* Dégradé bleu ciel vers blanc en bas */
-    background: linear-gradient(to bottom, #87ceeb 0%, #ffffff 100%);
-  }
+  body { margin: 0; overflow: hidden; }
   canvas { display: block; }
 </style>
 </head>
@@ -27,8 +22,7 @@ animate();
 
 function init() {
   scene = new THREE.Scene();
-
-  // Ne pas définir scene.background, on utilise le CSS body pour le ciel
+  scene.background = new THREE.Color(0x87ceeb); // Ciel bleu clair
 
   camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
   camera.position.set(0, 2, 5);
@@ -53,7 +47,7 @@ function init() {
   document.addEventListener('keydown', e => keys[e.code] = true);
   document.addEventListener('keyup', e => keys[e.code] = false);
 
-  // Souris : rotation caméra sans clic
+  // Souris libre sans clic
   document.addEventListener('mousemove', e => {
     yaw -= e.movementX * 0.002;
     pitch -= e.movementY * 0.002;
@@ -61,7 +55,7 @@ function init() {
     camera.rotation.set(pitch, yaw, 0);
   });
 
-  // Ajustement taille fenêtre
+  // Resize
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
@@ -99,6 +93,7 @@ function animate() {
 </script>
 </body>
 </html>
+
 
 
 
