@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<title>Mouvements FPS corrigés (Z/S pour avancer/reculer)</title>
+<title>Mouvements FPS corrigés</title>
 <style>
   body { margin: 0; overflow: hidden; }
   canvas { display: block; }
@@ -22,7 +22,7 @@ animate();
 
 function init() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb); // ciel bleu clair
+  scene.background = new THREE.Color(0x87ceeb);
 
   camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
   camera.position.set(0, 2, 5);
@@ -36,18 +36,21 @@ function init() {
   light.position.set(5,10,5);
   scene.add(light);
 
-  // Sol
   const floorGeo = new THREE.PlaneGeometry(200,200);
   const floorMat = new THREE.MeshStandardMaterial({color: 0x555555});
   const floor = new THREE.Mesh(floorGeo, floorMat);
   floor.rotation.x = -Math.PI/2;
   scene.add(floor);
 
-  // Gestion du clavier
-  document.addEventListener('keydown', e => keys[e.code] = true);
-  document.addEventListener('keyup', e => keys[e.code] = false);
+  document.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    // console.log("Key down:", e.code);
+  });
+  document.addEventListener('keyup', e => {
+    keys[e.code] = false;
+    // console.log("Key up:", e.code);
+  });
 
-  // Souris : rotation caméra (sans clic)
   document.addEventListener('mousemove', e => {
     yaw -= e.movementX * 0.002;
     pitch -= e.movementY * 0.002;
@@ -73,7 +76,6 @@ function animate() {
 
   let moveDir = new THREE.Vector3();
 
-  // Ici on accepte W et Z pour avancer (QWERTY/AZERTY)
   if(keys["KeyZ"] || keys["KeyW"]) moveDir.add(forwardDir);
   if(keys["KeyS"]) moveDir.add(forwardDir.clone().negate());
   if(keys["KeyD"]) moveDir.add(rightDir);
