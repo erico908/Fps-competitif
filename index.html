@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FPS Map Prototype — balade</title>
+  <style>
+    html,body{height:100%;margin:0;background:#111;color:#fff;font-family:Inter,Roboto,Arial}
+    #container{width:100%;height:100%;overflow:hidden;position:relative}
+    canvas{display:block}
+
+    /* Overlay UI */
+    #overlay{
+      position: absolute;left:12px;top:12px;z-index:20;max-width:360px;background:rgba(0,0,0,0.35);padding:10px;border-radius:8px;font-size:13px
+    }
+    #overlay b{color:#ffd36b}
+
+    #instructions{
+      position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30;padding:18px 22px;background:rgba(0,0,0,0.6);border-radius:10px;text-align:center;cursor:pointer
+    }
+    #instructions small{display:block;margin-top:8px;color:#ccc}
+
+    #controls-mobile{
+      position: absolute;left:12px;bottom:12px;z-index:25;display:none;gap:8px
+    }
+    .mv-btn{width:64px;height:64px;border-radius:12px;background:rgba(255,255,255,0.06);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;font-weight:700}
+
+    #regenerate{position:absolute;right:12px;top:12px;z-index:20;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.04);cursor:pointer}
+
+    /* Mobile show */
+    @media (pointer:coarse){
+      #controls-mobile{display:flex}
+      #instructions{font-size:15px;padding:14px}
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+
+  <div id="overlay">
+    <div><b>Prototype — Map test</b></div>
+    <div style="margin-top:6px">Clique pour verrouiller la souris et commencer. <br>
+      Déplacements : <b>ZQSD</b> ou <b>WASD</b> (support des deux), souris pour tourner. <br>
+      Bouton <b>Regenerate Map</b> pour repositionner les obstacles.</div>
+  </div>
+
+  <div id="regenerate">Regenerate Map</div>
+
+  <div id="instructions">Clique pour jouer<br><small>(ZQSD / WASD — clic pour verrouiller)</small></div>
+
+  <div id="controls-mobile" aria-hidden="true">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="mv-btn" id="btn-up">▲</div>
+      <div style="display:flex;gap:8px"><div class="mv-btn" id="btn-left">◀</div><div class="mv-btn" id="btn-down">▼</div><div class="mv-btn" id="btn-right">▶</div></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.155.0/build/three.module.js';
+    import { PointerLockControls } from 'https://unpkg.com/three@0.155.0/examples/jsm/controls/PointerLockControls.js';
+
+    /* ---------------- CONFIG ---------------- */
+    const MAP_SIZE = 100;
+    const NUM_BOXES = 55; // change to taste
+    const BOX_MIN = 1.2;
+    const BOX_MAX = 6.0;
+    const PLAYER_HEIGHT = 1.7;
+    const PLAYER_RADIUS = 0.35;
+    const PLAYER_SPEED = 6.0; // units / second
+
+    /* -------------- Scene Init -------------- */
+    const container = document.getElementById('container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x88aaff);
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+    const renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+
+    // Lighting (minimal for perf)
+    const ambient = new THREE.AmbientLight(0xffffff, 0.9);
+    scene.add(ambient);
+
+    // Ground
+    const groundGeo = new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE);
+    const groundMat = new THREE.MeshStandardMaterial({color:0x6b8e23});
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = false;
+    scene.add(ground);
+
+    // grid helper for reference (low opacity)
+    const grid = new THREE.GridHelper(MAP_SIZE, MAP_SIZE/2, 0x000000, 0x000000);
+    grid.material.opacity = 0.06; grid.material.transparent = true;
+    scene.add(grid);
+
+    /* -------------- Player & Controls -------------- */
+    const controls = new PointerLockControls(camera, document.body);
+    scene.add(controls.getObject());
+    controls.getObject().position.set(0, PLAYER_HEIGHT, 0);
+
+    const instructions = document.getElementById('instructions');
+    const overlay = document.getElementById('overlay');
+    const blocker = document.getElementById('instructions');
+
+    instructions.addEventListener('click', ()=> controls.lock());
+
+    controls.addEventListener('lock', ()=>{
+      instructions.style.display = 'none';
+      overlay.style.display = 'none';
+    });
+    controls.addEventListener('unlock', ()=>{
+      instructions.style.display = '';
+      overlay.style.display = '';
+    });
+
+    /* -------------- Map generation -------------- */
+    const boxes = []; // {mesh, box3}
+
+    function randomRange(a,b){return a + Math.random()*(b-a)}
+
+    function spawnBoxes(n){
+      // clear old
+      for(const b of boxes){ scene.remove(b.mesh); }
+      boxes.length = 0;
+
+      const padding = 4; // keep spawn area clear
+      let attempts = 0;
+      for(let i=0;i<n && attempts < n*20;i++){
+        attempts++;
+        const w = randomRange(BOX_MIN, BOX_MAX);
+        const h = randomRange(1.0, 3.5);
+        const d = randomRange(BOX_MIN, BOX_MAX);
+        const x = randomRange(-MAP_SIZE/2 + w, MAP_SIZE/2 - w);
+        const z = randomRange(-MAP_SIZE/2 + d, MAP_SIZE/2 - d);
+        // avoid spawn circle
+        if (Math.hypot(x, z) < padding) { continue; }
+
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(w, h, d),
+          new THREE.MeshStandardMaterial({color: 0x8b7d6b})
+        );
+        mesh.position.set(x, h/2, z);
+
+        const bbox = new THREE.Box3().setFromObject(mesh);
+
+        // simple rejection to avoid heavy overlaps
+        let ok = true;
+        for(const b of boxes){
+          if (bbox.intersectsBox(b.box3)) { ok = false; break; }
+        }
+        if (!ok) continue;
+
+        boxes.push({mesh, box3: bbox});
+        scene.add(mesh);
+      }
+    }
+
+    spawnBoxes(NUM_BOXES);
+
+    document.getElementById('regenerate').addEventListener('click', ()=>{
+      spawnBoxes(NUM_BOXES);
+      console.log('Regenerated map with', boxes.length, 'obstacles');
+    });
+
+    /* -------------- Movement & collision -------------- */
+    const moveState = {fwd:false, back:false, left:false, right:false};
+
+    function keyDown(e){
+      const k = (e.key||'').toLowerCase();
+      if (['w','z'].includes(k)) moveState.fwd = true;
+      if (k === 's') moveState.back = true;
+      if (['a','q'].includes(k)) moveState.left = true;
+      if (k === 'd') moveState.right = true;
+    }
+    function keyUp(e){
+      const k = (e.key||'').toLowerCase();
+      if (['w','z'].includes(k)) moveState.fwd = false;
+      if (k === 's') moveState.back = false;
+      if (['a','q'].includes(k)) moveState.left = false;
+      if (k === 'd') moveState.right = false;
+    }
+    window.addEventListener('keydown', keyDown);
+    window.addEventListener('keyup', keyUp);
+
+    // Mobile buttons
+    const btnUp = document.getElementById('btn-up');
+    const btnDown = document.getElementById('btn-down');
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+
+    function addTouch(btn, key){
+      btn.addEventListener('touchstart', (e)=>{ e.preventDefault(); moveState[key] = true; });
+      btn.addEventListener('touchend', (e)=>{ e.preventDefault(); moveState[key] = false; });
+    }
+    addTouch(btnUp,'fwd'); addTouch(btnDown,'back'); addTouch(btnLeft,'left'); addTouch(btnRight,'right');
+
+    // Show mobile controls when coarse pointer
+    if (matchMedia('(pointer:coarse)').matches){
+      document.getElementById('controls-mobile').style.display = 'flex';
+    }
+
+    function playerCollidesAt(pos){
+      // pos is Vector3
+      const test = new THREE.Vector3();
+      for(const b of boxes){
+        b.box3.clampPoint(pos, test);
+        const d2 = test.distanceToSquared(pos);
+        if (d2 < PLAYER_RADIUS*PLAYER_RADIUS) return true;
+      }
+      // also keep inside map bounds
+      if (pos.x < -MAP_SIZE/2 + 0.2 || pos.x > MAP_SIZE/2 - 0.2 || pos.z < -MAP_SIZE/2 + 0.2 || pos.z > MAP_SIZE/2 - 0.2) return true;
+      return false;
+    }
+
+    function tryMove(object, dx, dz){
+      // axis-separated movement for basic sliding
+      const pos = object.position;
+      // X
+      const xTest = new THREE.Vector3(pos.x + dx, pos.y, pos.z);
+      if (!playerCollidesAt(xTest)){
+        pos.x += dx;
+      }
+      // Z
+      const zTest = new THREE.Vector3(pos.x, pos.y, pos.z + dz);
+      if (!playerCollidesAt(zTest)){
+        pos.z += dz;
+      }
+    }
+
+    /* -------------- Animation loop -------------- */
+    const clock = new THREE.Clock();
+
+    function animate(){
+      const delta = Math.min(0.05, clock.getDelta());
+
+      // compute movement vector in world space from camera forward/right
+      let forward = new THREE.Vector3();
+      camera.getWorldDirection(forward);
+      forward.y = 0; forward.normalize();
+      const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
+
+      let dir = new THREE.Vector3();
+      if (moveState.fwd) dir.add(forward);
+      if (moveState.back) dir.add(forward.clone().negate());
+      if (moveState.left) dir.add(right.clone().negate());
+      if (moveState.right) dir.add(right);
+
+      if (dir.lengthSq() > 0){
+        dir.normalize();
+        const moveX = dir.x * PLAYER_SPEED * delta;
+        const moveZ = dir.z * PLAYER_SPEED * delta;
+        tryMove(controls.getObject(), moveX, moveZ);
+      }
+
+      // keep camera/player at fixed height
+      controls.getObject().position.y = PLAYER_HEIGHT;
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    /* -------------- Resize handling -------------- */
+    window.addEventListener('resize', ()=>{
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // helpful console message
+    console.log('Prototype loaded — click the center panel to lock pointer.');
+  </script>
+</body>
+</html>
