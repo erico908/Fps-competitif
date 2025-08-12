@@ -2,13 +2,30 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>Test FPS déplacement</title>
+  <title>FPS avec souris et clavier</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
+    #instructions {
+      position: absolute;
+      top: 10px; left: 10px;
+      color: white;
+      font-family: Arial, sans-serif;
+      z-index: 100;
+      background: rgba(0,0,0,0.5);
+      padding: 10px;
+      border-radius: 5px;
+      max-width: 300px;
+    }
   </style>
 </head>
 <body>
+<div id="instructions">
+  <p>Click pour capturer la souris et jouer</p>
+  <p>Déplacements : Z S Q D</p>
+  <p>Regarder autour : souris</p>
+  <p>Esc pour libérer la souris</p>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 <script>
   let camera, scene, renderer;
@@ -16,35 +33,45 @@
   let velocity = new THREE.Vector3();
   let prevTime = performance.now();
 
+  let pitchObject, yawObject;
+  let pointerLocked = false;
+
   init();
   animate();
 
   function init() {
     scene = new THREE.Scene();
 
-    // Ciel bleu clair peu gourmand en perf
-    scene.background = new THREE.Color(0x87ceeb); // ciel bleu clair (skyblue)
+    scene.background = new THREE.Color(0x87ceeb); // ciel bleu clair
 
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 2, 5);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
-    // Sol
+    // Pour gérer rotation avec souris, on crée 2 objets emboîtés
+    pitchObject = new THREE.Object3D();
+    pitchObject.add(camera);
+
+    yawObject = new THREE.Object3D();
+    yawObject.position.y = 2;
+    yawObject.add(pitchObject);
+
+    scene.add(yawObject);
+
+    // Sol coloré
     const floorGeometry = new THREE.PlaneGeometry(20, 20);
-    const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x808080 });
+    const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x228B22 }); // vert forêt
     const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -Math.PI / 2;
+    floor.rotation.x = -Math.PI/2;
     floor.position.y = 0;
     scene.add(floor);
 
-    // Murs (4 murs autour)
-    const wallGeometry = new THREE.BoxGeometry(20, 4, 0.5);
-    const wallMaterial = new THREE.MeshPhongMaterial({ color: 0x444444 });
+    // Murs colorés
+    const wallMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 }); // marron bois
 
-    const wall1 = new THREE.Mesh(wallGeometry, wallMaterial);
+    const wall1 = new THREE.Mesh(new THREE.BoxGeometry(20, 4, 0.5), wallMaterial);
     wall1.position.set(0, 2, -10);
     scene.add(wall1);
 
-    const wall2 = new THREE.Mesh(wallGeometry, wallMaterial);
+    const wall2 = new THREE.Mesh(new THREE.BoxGeometry(20, 4, 0.5), wallMaterial);
     wall2.position.set(0, 2, 10);
     scene.add(wall2);
 
@@ -68,10 +95,26 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
+    // Événements clavier
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
 
+    // Gestion fenêtre
     window.addEventListener('resize', onWindowResize);
+
+    // Gestion souris + pointer lock
+    document.body.addEventListener('click', () => {
+      if (!pointerLocked) {
+        document.body.requestPointerLock();
+      }
+    });
+
+    document.addEventListener('pointerlockchange', () => {
+      pointerLocked = (document.pointerLockElement === document.body);
+      document.getElementById('instructions').style.display = pointerLocked ? 'none' : 'block';
+    });
+
+    document.addEventListener('mousemove', onMouseMove);
   }
 
   function onWindowResize() {
@@ -84,8 +127,8 @@
     switch(event.key.toLowerCase()) {
       case 'z': moveForward = true; break;
       case 's': moveBackward = true; break;
-      case 'q': moveRight = true; break;  // Q = droite
-      case 'd': moveLeft = true; break;   // D = gauche
+      case 'q': moveRight = true; break;
+      case 'd': moveLeft = true; break;
     }
   }
 
@@ -98,6 +141,21 @@
     }
   }
 
+  let PI_2 = Math.PI / 2;
+
+  function onMouseMove(event) {
+    if (!pointerLocked) return;
+
+    let movementX = event.movementX || 0;
+    let movementY = event.movementY || 0;
+
+    yawObject.rotation.y -= movementX * 0.002;
+    pitchObject.rotation.x -= movementY * 0.002;
+
+    // Limiter rotation verticale (regarder vers le haut et bas)
+    pitchObject.rotation.x = Math.max(-PI_2, Math.min(PI_2, pitchObject.rotation.x));
+  }
+
   function animate() {
     requestAnimationFrame(animate);
 
@@ -106,26 +164,27 @@
 
     velocity.set(0, 0, 0);
 
-    // Direction avant (caméra)
-    const forward = new THREE.Vector3();
-    camera.getWorldDirection(forward);
+    // Calcul direction avant (depuis yawObject)
+    const forward = new THREE.Vector3(0, 0, -1);
+    forward.applyQuaternion(yawObject.quaternion);
     forward.y = 0;
     forward.normalize();
 
-    // Direction droite (perpendiculaire avant)
+    // Calcul direction droite (perp à avant)
     const right = new THREE.Vector3();
-    right.crossVectors(camera.up, forward).normalize();
+    right.crossVectors(new THREE.Vector3(0,1,0), forward).normalize();
 
     if (moveForward) velocity.add(forward);
     if (moveBackward) velocity.sub(forward);
     if (moveRight) velocity.add(right);
     if (moveLeft) velocity.sub(right);
 
-    velocity.normalize();
-    velocity.multiplyScalar(5 * delta);
+    if (velocity.length() > 0) {
+      velocity.normalize();
+      velocity.multiplyScalar(5 * delta);
+    }
 
-    // Limite du déplacement (mur invisible)
-    const nextPos = camera.position.clone().add(velocity);
+    const nextPos = yawObject.position.clone().add(velocity);
     const limit = 9.5;
 
     if (
@@ -134,7 +193,7 @@
       nextPos.z > -limit &&
       nextPos.z < limit
     ) {
-      camera.position.copy(nextPos);
+      yawObject.position.copy(nextPos);
     }
 
     prevTime = time;
@@ -144,6 +203,7 @@
 </script>
 </body>
 </html>
+
 
 
 
