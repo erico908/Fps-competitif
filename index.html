@@ -31,18 +31,26 @@ function init() {
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
+    // Contrôleur FPS
     pitchObject = new THREE.Object3D();
     pitchObject.add(camera);
 
     yawObject = new THREE.Object3D();
-    yawObject.position.y = 2;
+    yawObject.position.y = 2; // hauteur des yeux
     yawObject.add(pitchObject);
     scene.add(yawObject);
 
     // Sol
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20,20), new THREE.MeshPhongMaterial({color:0x228B22}));
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshPhongMaterial({color:0x228B22}));
     floor.rotation.x = -Math.PI/2;
     scene.add(floor);
+
+    // Murs simples
+    const wallMat = new THREE.MeshPhongMaterial({color:0x8B4513});
+    const wall1 = new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat); wall1.position.set(-10,2.5,0); scene.add(wall1);
+    const wall2 = new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat); wall2.position.set(10,2.5,0); scene.add(wall2);
+    const wall3 = new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat); wall3.position.set(0,2.5,-10); scene.add(wall3);
+    const wall4 = new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat); wall4.position.set(0,2.5,10); scene.add(wall4);
 
     // Lumière
     const light = new THREE.DirectionalLight(0xffffff,1);
@@ -126,6 +134,8 @@ document.getElementById('startBtn').addEventListener('click', ()=>{
 </script>
 </body>
 </html>
+
+
 
 
 
