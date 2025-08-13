@@ -127,8 +127,8 @@
     switch(event.key.toLowerCase()) {
       case 'z': moveForward = true; break;
       case 's': moveBackward = true; break;
-      case 'q': moveLeft = true; break;  // ← gauche
-      case 'd': moveRight = true; break; // → droite
+      case 'q': moveRight = true; break;
+      case 'd': moveLeft = true; break;
     }
   }
 
@@ -136,8 +136,8 @@
     switch(event.key.toLowerCase()) {
       case 'z': moveForward = false; break;
       case 's': moveBackward = false; break;
-      case 'q': moveLeft = false; break;
-      case 'd': moveRight = false; break;
+      case 'q': moveRight = false; break;
+      case 'd': moveLeft = false; break;
     }
   }
 
@@ -149,13 +149,14 @@
     let movementX = event.movementX || 0;
     let movementY = event.movementY || 0;
 
-    yawObject.rotation.y -= movementX * 0.005;   // sensibilité un peu plus forte
-    pitchObject.rotation.x -= movementY * 0.005;
+    yawObject.rotation.y -= movementX * 0.002;
+    pitchObject.rotation.x -= movementY * 0.002;
 
     // Limiter rotation verticale (regarder vers le haut et bas)
     pitchObject.rotation.x = Math.max(-PI_2, Math.min(PI_2, pitchObject.rotation.x));
   }
 
+  // ** Fonction animate modifiée pour déplacement libre selon pitch + yaw **
   function animate() {
     requestAnimationFrame(animate);
 
@@ -164,20 +165,20 @@
 
     velocity.set(0, 0, 0);
 
-    // Calcul direction avant (depuis yawObject)
+    // Calcul direction avant (depuis la rotation complète yaw + pitch)
     const forward = new THREE.Vector3(0, 0, -1);
     forward.applyQuaternion(yawObject.quaternion);
-    forward.y = 0;
     forward.normalize();
 
-    // Calcul direction droite (perp à avant)
+    // Calcul direction droite (perpendiculaire à forward et up)
+    const up = new THREE.Vector3(0, 1, 0);
     const right = new THREE.Vector3();
-    right.crossVectors(new THREE.Vector3(0,1,0), forward).normalize();
+    right.crossVectors(forward, up).normalize();
 
     if (moveForward) velocity.add(forward);
     if (moveBackward) velocity.sub(forward);
-    if (moveLeft) velocity.sub(right);
     if (moveRight) velocity.add(right);
+    if (moveLeft) velocity.sub(right);
 
     if (velocity.length() > 0) {
       velocity.normalize();
@@ -185,13 +186,12 @@
     }
 
     const nextPos = yawObject.position.clone().add(velocity);
-    const limit = 9.5;
 
+    const limit = 9.5;
     if (
-      nextPos.x > -limit &&
-      nextPos.x < limit &&
-      nextPos.z > -limit &&
-      nextPos.z < limit
+      nextPos.x > -limit && nextPos.x < limit &&
+      nextPos.y > -limit && nextPos.y < limit &&
+      nextPos.z > -limit && nextPos.z < limit
     ) {
       yawObject.position.copy(nextPos);
     }
@@ -203,6 +203,7 @@
 </script>
 </body>
 </html>
+
 
 
 
