@@ -2,171 +2,184 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>FPS libre</title>
+  <title>FPS avec bouton démarrage</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
-    #overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+    #startBtn {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px 40px;
       font-size: 20px;
-      font-family: Arial, sans-serif;
-      z-index: 10;
+      cursor: pointer;
+      background: #222;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      z-index: 100;
     }
   </style>
 </head>
 <body>
-<div id="overlay">Appuie sur une touche pour commencer</div>
-
+<button id="startBtn">Commencer</button>
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 <script>
-let camera, scene, renderer;
-let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-let velocity = new THREE.Vector3();
-let prevTime = performance.now();
-let pitchObject, yawObject;
-let pointerLocked = false;
+  let camera, scene, renderer;
+  let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+  let velocity = new THREE.Vector3();
+  let prevTime = performance.now();
 
-init();
-animate();
+  let pitchObject, yawObject;
+  let pointerLocked = false;
 
-function init() {
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb);
+  init();
+  animate();
 
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  function init() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb);
 
-  pitchObject = new THREE.Object3D();
-  pitchObject.add(camera);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
-  yawObject = new THREE.Object3D();
-  yawObject.position.y = 2;
-  yawObject.add(pitchObject);
+    pitchObject = new THREE.Object3D();
+    pitchObject.add(camera);
 
-  scene.add(yawObject);
+    yawObject = new THREE.Object3D();
+    yawObject.position.y = 2;
+    yawObject.add(pitchObject);
 
-  // Sol
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(20, 20),
-    new THREE.MeshPhongMaterial({ color: 0x228B22 })
-  );
-  floor.rotation.x = -Math.PI/2;
-  scene.add(floor);
+    scene.add(yawObject);
 
-  // Murs
-  const wallMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
-  const walls = [
-    { pos: [0,2,-10], size:[20,4,0.5] },
-    { pos: [0,2,10],  size:[20,4,0.5] },
-    { pos: [-10,2,0], size:[0.5,4,20] },
-    { pos: [10,2,0],  size:[0.5,4,20] }
-  ];
-  walls.forEach(w=>{
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...w.size), wallMaterial);
-    mesh.position.set(...w.pos);
-    scene.add(mesh);
-  });
+    const floorGeometry = new THREE.PlaneGeometry(20, 20);
+    const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x228B22 });
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI/2;
+    scene.add(floor);
 
-  // Lumières
-  const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(5, 10, 7);
-  scene.add(light);
-  scene.add(new THREE.AmbientLight(0x404040));
+    const wallMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
+    const wall1 = new THREE.Mesh(new THREE.BoxGeometry(20, 4, 0.5), wallMaterial);
+    wall1.position.set(0, 2, -10);
+    scene.add(wall1);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+    const wall2 = new THREE.Mesh(new THREE.BoxGeometry(20, 4, 0.5), wallMaterial);
+    wall2.position.set(0, 2, 10);
+    scene.add(wall2);
 
-  document.addEventListener('keydown', onKeyDown);
-  document.addEventListener('keyup', onKeyUp);
-  window.addEventListener('resize', onWindowResize);
+    const wall3 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 20), wallMaterial);
+    wall3.position.set(-10, 2, 0);
+    scene.add(wall3);
 
-  document.addEventListener('pointerlockchange', () => {
-    pointerLocked = (document.pointerLockElement === document.body);
-    if (pointerLocked) document.getElementById('overlay').style.display = 'none';
-  });
+    const wall4 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 20), wallMaterial);
+    wall4.position.set(10, 2, 0);
+    scene.add(wall4);
 
-  document.addEventListener('mousemove', onMouseMove);
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5, 10, 7);
+    scene.add(light);
 
-  // Activer pointer lock au premier mouvement ou touche
-  const startGame = () => {
-    if (!pointerLocked) {
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
+    window.addEventListener('resize', onWindowResize);
+
+    document.addEventListener('pointerlockchange', () => {
+      pointerLocked = (document.pointerLockElement === document.body);
+    });
+
+    document.addEventListener('mousemove', onMouseMove);
+
+    // Bouton démarrage
+    document.getElementById("startBtn").addEventListener("click", () => {
       document.body.requestPointerLock();
+      document.getElementById("startBtn").style.display = "none";
+    });
+  }
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function onKeyDown(event) {
+    switch(event.key.toLowerCase()) {
+      case 'z': moveForward = true; break;
+      case 's': moveBackward = true; break;
+      case 'q': moveLeft = true; break;
+      case 'd': moveRight = true; break;
     }
-  };
-  document.getElementById('overlay').addEventListener('click', startGame);
-  document.addEventListener('keydown', startGame, { once: true });
-  document.addEventListener('mousemove', startGame, { once: true });
-}
-
-function onWindowResize() {
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-function onKeyDown(event) {
-  switch(event.key.toLowerCase()) {
-    case 'z': moveForward = true; break;
-    case 's': moveBackward = true; break;
-    case 'q': moveLeft = true; break;
-    case 'd': moveRight = true; break;
-  }
-}
-
-function onKeyUp(event) {
-  switch(event.key.toLowerCase()) {
-    case 'z': moveForward = false; break;
-    case 's': moveBackward = false; break;
-    case 'q': moveLeft = false; break;
-    case 'd': moveRight = false; break;
-  }
-}
-
-let PI_2 = Math.PI / 2;
-function onMouseMove(event) {
-  if (!pointerLocked) return;
-  let movementX = event.movementX || 0;
-  let movementY = event.movementY || 0;
-  yawObject.rotation.y -= movementX * 0.002;
-  pitchObject.rotation.x -= movementY * 0.002;
-  pitchObject.rotation.x = Math.max(-PI_2, Math.min(PI_2, pitchObject.rotation.x));
-}
-
-function animate() {
-  requestAnimationFrame(animate);
-  const time = performance.now();
-  const delta = (time - prevTime) / 1000;
-  velocity.set(0, 0, 0);
-
-  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(yawObject.quaternion);
-  forward.y = 0; forward.normalize();
-  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
-
-  if (moveForward) velocity.add(forward);
-  if (moveBackward) velocity.sub(forward);
-  if (moveRight) velocity.add(right);
-  if (moveLeft) velocity.sub(right);
-
-  if (velocity.length() > 0) velocity.normalize().multiplyScalar(5 * delta);
-
-  const nextPos = yawObject.position.clone().add(velocity);
-  const limit = 9.5;
-  if (Math.abs(nextPos.x) < limit && Math.abs(nextPos.z) < limit) {
-    yawObject.position.copy(nextPos);
   }
 
-  prevTime = time;
-  renderer.render(scene, camera);
-}
+  function onKeyUp(event) {
+    switch(event.key.toLowerCase()) {
+      case 'z': moveForward = false; break;
+      case 's': moveBackward = false; break;
+      case 'q': moveLeft = false; break;
+      case 'd': moveRight = false; break;
+    }
+  }
+
+  let PI_2 = Math.PI / 2;
+
+  function onMouseMove(event) {
+    if (!pointerLocked) return;
+    let movementX = event.movementX || 0;
+    let movementY = event.movementY || 0;
+    yawObject.rotation.y -= movementX * 0.002;
+    pitchObject.rotation.x -= movementY * 0.002;
+    pitchObject.rotation.x = Math.max(-PI_2, Math.min(PI_2, pitchObject.rotation.x));
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const time = performance.now();
+    const delta = (time - prevTime) / 1000;
+    velocity.set(0, 0, 0);
+
+    const forward = new THREE.Vector3(0, 0, -1);
+    forward.applyQuaternion(yawObject.quaternion);
+    forward.y = 0;
+    forward.normalize();
+
+    const right = new THREE.Vector3();
+    right.crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
+
+    if (moveForward) velocity.add(forward);
+    if (moveBackward) velocity.sub(forward);
+    if (moveRight) velocity.add(right);
+    if (moveLeft) velocity.sub(right);
+
+    if (velocity.length() > 0) {
+      velocity.normalize();
+      velocity.multiplyScalar(5 * delta);
+    }
+
+    const nextPos = yawObject.position.clone().add(velocity);
+    const limit = 9.5;
+
+    if (
+      nextPos.x > -limit &&
+      nextPos.x < limit &&
+      nextPos.z > -limit &&
+      nextPos.z < limit
+    ) {
+      yawObject.position.copy(nextPos);
+    }
+
+    prevTime = time;
+    renderer.render(scene, camera);
+  }
 </script>
 </body>
 </html>
+
 
 
 
