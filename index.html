@@ -21,7 +21,6 @@
 </head>
 <body>
 <div id="instructions">
-  <p>Click pour capturer la souris et jouer</p>
   <p>Déplacements : Z S Q D</p>
   <p>Regarder autour : souris</p>
   <p>Esc pour libérer la souris</p>
@@ -41,12 +40,10 @@
 
   function init() {
     scene = new THREE.Scene();
-
-    scene.background = new THREE.Color(0x87ceeb); // ciel bleu clair
+    scene.background = new THREE.Color(0x87ceeb);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
-    // Pour gérer rotation avec souris, on crée 2 objets emboîtés
     pitchObject = new THREE.Object3D();
     pitchObject.add(camera);
 
@@ -56,17 +53,13 @@
 
     scene.add(yawObject);
 
-    // Sol coloré
     const floorGeometry = new THREE.PlaneGeometry(20, 20);
-    const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x228B22 }); // vert forêt
+    const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x228B22 });
     const floor = new THREE.Mesh(floorGeometry, floorMaterial);
     floor.rotation.x = -Math.PI/2;
-    floor.position.y = 0;
     scene.add(floor);
 
-    // Murs colorés
-    const wallMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 }); // marron bois
-
+    const wallMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
     const wall1 = new THREE.Mesh(new THREE.BoxGeometry(20, 4, 0.5), wallMaterial);
     wall1.position.set(0, 2, -10);
     scene.add(wall1);
@@ -83,7 +76,6 @@
     wall4.position.set(10, 2, 0);
     scene.add(wall4);
 
-    // Lumière
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(5, 10, 7);
     scene.add(light);
@@ -95,19 +87,14 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // Événements clavier
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
-
-    // Gestion fenêtre
     window.addEventListener('resize', onWindowResize);
 
-    // Gestion souris + pointer lock
-    document.body.addEventListener('click', () => {
-      if (!pointerLocked) {
-        document.body.requestPointerLock();
-      }
-    });
+    // Pointer lock automatique au démarrage
+    if (document.body.requestPointerLock) {
+      document.body.requestPointerLock();
+    }
 
     document.addEventListener('pointerlockchange', () => {
       pointerLocked = (document.pointerLockElement === document.body);
@@ -127,8 +114,8 @@
     switch(event.key.toLowerCase()) {
       case 'z': moveForward = true; break;
       case 's': moveBackward = true; break;
-      case 'q': moveRight = true; break;
-      case 'd': moveLeft = true; break;
+      case 'q': moveLeft = true; break;
+      case 'd': moveRight = true; break;
     }
   }
 
@@ -136,8 +123,8 @@
     switch(event.key.toLowerCase()) {
       case 'z': moveForward = false; break;
       case 's': moveBackward = false; break;
-      case 'q': moveRight = false; break;
-      case 'd': moveLeft = false; break;
+      case 'q': moveLeft = false; break;
+      case 'd': moveRight = false; break;
     }
   }
 
@@ -145,35 +132,26 @@
 
   function onMouseMove(event) {
     if (!pointerLocked) return;
-
     let movementX = event.movementX || 0;
     let movementY = event.movementY || 0;
-
     yawObject.rotation.y -= movementX * 0.002;
     pitchObject.rotation.x -= movementY * 0.002;
-
-    // Limiter rotation verticale (regarder vers le haut et bas)
     pitchObject.rotation.x = Math.max(-PI_2, Math.min(PI_2, pitchObject.rotation.x));
   }
 
-  // ** Fonction animate modifiée pour déplacement libre selon pitch + yaw **
   function animate() {
     requestAnimationFrame(animate);
-
     const time = performance.now();
     const delta = (time - prevTime) / 1000;
-
     velocity.set(0, 0, 0);
 
-    // Calcul direction avant (depuis la rotation complète yaw + pitch)
     const forward = new THREE.Vector3(0, 0, -1);
     forward.applyQuaternion(yawObject.quaternion);
+    forward.y = 0;
     forward.normalize();
 
-    // Calcul direction droite (perpendiculaire à forward et up)
-    const up = new THREE.Vector3(0, 1, 0);
     const right = new THREE.Vector3();
-    right.crossVectors(forward, up).normalize();
+    right.crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
 
     if (moveForward) velocity.add(forward);
     if (moveBackward) velocity.sub(forward);
@@ -186,23 +164,24 @@
     }
 
     const nextPos = yawObject.position.clone().add(velocity);
-
     const limit = 9.5;
+
     if (
-      nextPos.x > -limit && nextPos.x < limit &&
-      nextPos.y > -limit && nextPos.y < limit &&
-      nextPos.z > -limit && nextPos.z < limit
+      nextPos.x > -limit &&
+      nextPos.x < limit &&
+      nextPos.z > -limit &&
+      nextPos.z < limit
     ) {
       yawObject.position.copy(nextPos);
     }
 
     prevTime = time;
-
     renderer.render(scene, camera);
   }
 </script>
 </body>
 </html>
+
 
 
 
