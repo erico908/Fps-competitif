@@ -2,30 +2,26 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>FPS Pointer Lock</title>
+  <title>FPS libre</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; }
+    body { margin: 0; overflow: hidden; }
     canvas { display: block; }
-    #instructions {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
       color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 20px;
       font-family: Arial, sans-serif;
-      text-align: center;
-      background: rgba(0,0,0,0.5);
-      padding: 20px;
-      border-radius: 10px;
-      cursor: pointer;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
-<div id="instructions">
-  <p>Cliquez pour commencer</p>
-  <p>Déplacements : Z S Q D</p>
-  <p>Regarder autour : souris</p>
-</div>
+<div id="overlay">Appuie sur une touche pour commencer</div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 <script>
@@ -33,10 +29,8 @@ let camera, scene, renderer;
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
 let velocity = new THREE.Vector3();
 let prevTime = performance.now();
-
 let pitchObject, yawObject;
-let mouseSensitivity = 0.002;
-let controlsEnabled = false;
+let pointerLocked = false;
 
 init();
 animate();
@@ -56,25 +50,29 @@ function init() {
 
   scene.add(yawObject);
 
-  const floorGeometry = new THREE.PlaneGeometry(20, 20);
-  const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x228B22 });
-  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  // Sol
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(20, 20),
+    new THREE.MeshPhongMaterial({ color: 0x228B22 })
+  );
   floor.rotation.x = -Math.PI/2;
   scene.add(floor);
 
+  // Murs
   const wallMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
   const walls = [
-    new THREE.Mesh(new THREE.BoxGeometry(20, 4, 0.5), wallMaterial),
-    new THREE.Mesh(new THREE.BoxGeometry(20, 4, 0.5), wallMaterial),
-    new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 20), wallMaterial),
-    new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 20), wallMaterial)
+    { pos: [0,2,-10], size:[20,4,0.5] },
+    { pos: [0,2,10],  size:[20,4,0.5] },
+    { pos: [-10,2,0], size:[0.5,4,20] },
+    { pos: [10,2,0],  size:[0.5,4,20] }
   ];
-  walls[0].position.set(0, 2, -10);
-  walls[1].position.set(0, 2, 10);
-  walls[2].position.set(-10, 2, 0);
-  walls[3].position.set(10, 2, 0);
-  walls.forEach(w => scene.add(w));
+  walls.forEach(w=>{
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...w.size), wallMaterial);
+    mesh.position.set(...w.pos);
+    scene.add(mesh);
+  });
 
+  // Lumières
   const light = new THREE.DirectionalLight(0xffffff, 1);
   light.position.set(5, 10, 7);
   scene.add(light);
@@ -84,39 +82,26 @@ function init() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  const instructions = document.getElementById('instructions');
-
-  instructions.addEventListener('click', function() {
-    document.body.requestPointerLock =
-      document.body.requestPointerLock ||
-      document.body.mozRequestPointerLock ||
-      document.body.webkitRequestPointerLock;
-    document.body.requestPointerLock();
-  });
-
-  document.addEventListener('pointerlockchange', lockChangeAlert);
-  document.addEventListener('mozpointerlockchange', lockChangeAlert);
-  document.addEventListener('webkitpointerlockchange', lockChangeAlert);
-
-  function lockChangeAlert() {
-    if (
-      document.pointerLockElement === document.body ||
-      document.mozPointerLockElement === document.body ||
-      document.webkitPointerLockElement === document.body
-    ) {
-      controlsEnabled = true;
-      instructions.style.display = 'none';
-      document.addEventListener('mousemove', onMouseMove, false);
-    } else {
-      controlsEnabled = false;
-      instructions.style.display = '';
-      document.removeEventListener('mousemove', onMouseMove, false);
-    }
-  }
-
   document.addEventListener('keydown', onKeyDown);
   document.addEventListener('keyup', onKeyUp);
   window.addEventListener('resize', onWindowResize);
+
+  document.addEventListener('pointerlockchange', () => {
+    pointerLocked = (document.pointerLockElement === document.body);
+    if (pointerLocked) document.getElementById('overlay').style.display = 'none';
+  });
+
+  document.addEventListener('mousemove', onMouseMove);
+
+  // Activer pointer lock au premier mouvement ou touche
+  const startGame = () => {
+    if (!pointerLocked) {
+      document.body.requestPointerLock();
+    }
+  };
+  document.getElementById('overlay').addEventListener('click', startGame);
+  document.addEventListener('keydown', startGame, { once: true });
+  document.addEventListener('mousemove', startGame, { once: true });
 }
 
 function onWindowResize() {
@@ -144,57 +129,45 @@ function onKeyUp(event) {
 }
 
 let PI_2 = Math.PI / 2;
-
 function onMouseMove(event) {
-  yawObject.rotation.y -= event.movementX * mouseSensitivity;
-  pitchObject.rotation.x -= event.movementY * mouseSensitivity;
+  if (!pointerLocked) return;
+  let movementX = event.movementX || 0;
+  let movementY = event.movementY || 0;
+  yawObject.rotation.y -= movementX * 0.002;
+  pitchObject.rotation.x -= movementY * 0.002;
   pitchObject.rotation.x = Math.max(-PI_2, Math.min(PI_2, pitchObject.rotation.x));
 }
 
 function animate() {
   requestAnimationFrame(animate);
+  const time = performance.now();
+  const delta = (time - prevTime) / 1000;
+  velocity.set(0, 0, 0);
 
-  if (controlsEnabled) {
-    const time = performance.now();
-    const delta = (time - prevTime) / 1000;
-    velocity.set(0, 0, 0);
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(yawObject.quaternion);
+  forward.y = 0; forward.normalize();
+  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
 
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(yawObject.quaternion);
-    forward.y = 0;
-    forward.normalize();
+  if (moveForward) velocity.add(forward);
+  if (moveBackward) velocity.sub(forward);
+  if (moveRight) velocity.add(right);
+  if (moveLeft) velocity.sub(right);
 
-    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
+  if (velocity.length() > 0) velocity.normalize().multiplyScalar(5 * delta);
 
-    if (moveForward) velocity.add(forward);
-    if (moveBackward) velocity.sub(forward);
-    if (moveRight) velocity.add(right);
-    if (moveLeft) velocity.sub(right);
-
-    if (velocity.length() > 0) {
-      velocity.normalize();
-      velocity.multiplyScalar(5 * delta);
-    }
-
-    const nextPos = yawObject.position.clone().add(velocity);
-    const limit = 9.5;
-
-    if (
-      nextPos.x > -limit &&
-      nextPos.x < limit &&
-      nextPos.z > -limit &&
-      nextPos.z < limit
-    ) {
-      yawObject.position.copy(nextPos);
-    }
-
-    prevTime = time;
+  const nextPos = yawObject.position.clone().add(velocity);
+  const limit = 9.5;
+  if (Math.abs(nextPos.x) < limit && Math.abs(nextPos.z) < limit) {
+    yawObject.position.copy(nextPos);
   }
 
+  prevTime = time;
   renderer.render(scene, camera);
 }
 </script>
 </body>
 </html>
+
 
 
 
