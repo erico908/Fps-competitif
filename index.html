@@ -5,7 +5,7 @@
 <title>FPS Test</title>
 <style>
   body { margin:0; overflow:hidden; }
-  canvas { display:block; }
+  canvas { display:block; cursor: none; }
   #startBtn {
     position:absolute; top:50%; left:50%;
     transform:translate(-50%, -50%);
@@ -31,12 +31,11 @@ function init() {
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
-    // Contrôleur FPS
     pitchObject = new THREE.Object3D();
     pitchObject.add(camera);
 
     yawObject = new THREE.Object3D();
-    yawObject.position.y = 2; // hauteur des yeux
+    yawObject.position.y = 2;
     yawObject.add(pitchObject);
     scene.add(yawObject);
 
@@ -45,14 +44,14 @@ function init() {
     floor.rotation.x = -Math.PI/2;
     scene.add(floor);
 
-    // Murs simples
+    // Murs
     const wallMat = new THREE.MeshPhongMaterial({color:0x8B4513});
     const wall1 = new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat); wall1.position.set(-10,2.5,0); scene.add(wall1);
     const wall2 = new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat); wall2.position.set(10,2.5,0); scene.add(wall2);
     const wall3 = new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat); wall3.position.set(0,2.5,-10); scene.add(wall3);
     const wall4 = new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat); wall4.position.set(0,2.5,10); scene.add(wall4);
 
-    // Lumière
+    // Lumières
     const light = new THREE.DirectionalLight(0xffffff,1);
     light.position.set(5,10,7);
     scene.add(light);
@@ -62,12 +61,14 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
+    // Contrôles clavier
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
-    document.addEventListener('mousemove', onMouseMove);
 
-    document.addEventListener('pointerlockchange', () => {
-        pointerLocked = (document.pointerLockElement === renderer.domElement);
+    // Pointer Lock events
+    document.addEventListener('pointerlockchange', onPointerLockChange);
+    renderer.domElement.addEventListener('click', () => {
+        if (!pointerLocked) renderer.domElement.requestPointerLock();
     });
 
     window.addEventListener('resize', () => {
@@ -75,6 +76,15 @@ function init() {
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
+}
+
+function onPointerLockChange(){
+    pointerLocked = (document.pointerLockElement === renderer.domElement);
+    if(pointerLocked){
+        document.addEventListener('mousemove', onMouseMove);
+    } else {
+        document.removeEventListener('mousemove', onMouseMove);
+    }
 }
 
 function onKeyDown(e){
@@ -96,9 +106,8 @@ function onKeyUp(e){
 
 const PI_2 = Math.PI/2;
 function onMouseMove(e){
-    if(!pointerLocked) return;
-    yawObject.rotation.y -= e.movementX*0.002;
-    pitchObject.rotation.x -= e.movementY*0.002;
+    yawObject.rotation.y -= e.movementX * 0.002;
+    pitchObject.rotation.x -= e.movementY * 0.002;
     pitchObject.rotation.x = Math.max(-PI_2, Math.min(PI_2, pitchObject.rotation.x));
 }
 
@@ -126,9 +135,9 @@ function animate(){
 
 // Bouton Commencer
 document.getElementById('startBtn').addEventListener('click', ()=>{
+    document.getElementById('startBtn').style.display='none';
     init();
     animate();
-    document.getElementById('startBtn').style.display='none';
     renderer.domElement.requestPointerLock();
 });
 </script>
