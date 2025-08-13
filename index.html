@@ -2,125 +2,137 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>FPS avec souris et clavier</title>
+  <title>FPS – ZQSD + Caméra (PointerLockControls, fallback)</title>
   <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
-    #instructions {
-      position: absolute;
-      top: 10px; left: 10px;
-      color: white;
-      font-family: Arial, sans-serif;
-      z-index: 100;
-      background: rgba(0,0,0,0.5);
-      padding: 10px;
-      border-radius: 5px;
-      max-width: 300px;
+    :root{ --ui: rgba(0,0,0,.55); }
+    html,body{height:100%}
+    body{ margin:0; overflow:hidden; background:#000 }
+    canvas{ display:block }
+    #instructions{
+      position:absolute; inset:auto auto 16px 16px; color:#fff; font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; z-index:100; background:var(--ui); padding:10px 12px; border-radius:10px; max-width:360px; user-select:none;
     }
+    #status{ display:inline-block; margin-top:6px; padding:2px 6px; border-radius:6px; font-size:12px; background:#2c7; color:#041 }
   </style>
 </head>
 <body>
 <div id="instructions">
-  <p>Déplacements : Z S Q D</p>
-  <p>Regarder autour : souris</p>
-  <p>Esc pour libérer la souris</p>
+  <div style="font-weight:700; margin-bottom:6px">Contrôles</div>
+  Z / S : Avancer / Reculer<br/>
+  Q / D : Gauche / Droite<br/>
+  Souris : Regarder (sans clic)<br/>
+  Esc : Libérer la souris
+  <div id="status">Init…</div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
-<script>
-  let camera, scene, renderer;
-  let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-  let velocity = new THREE.Vector3();
+
+<!-- Three.js + Controls (open source MIT) -->
+<script type="module">
+  import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.module.js';
+  import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.154.0/examples/jsm/controls/PointerLockControls.js';
+
+  let camera, scene, renderer, controls;
+  let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false;
+  const velocity = new THREE.Vector3();
+  const direction = new THREE.Vector3();
   let prevTime = performance.now();
 
-  let pitchObject, yawObject;
-  let pointerLocked = false;
+  const SPEED = 5; // m/s
+
+  const statusEl = document.getElementById('status');
 
   init();
   animate();
 
-  function init() {
+  function init(){
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
+    scene.background = new THREE.Color(0x87ceeb); // ciel bleu
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
-    pitchObject = new THREE.Object3D();
-    pitchObject.add(camera);
+    // Lumières
+    const dir = new THREE.DirectionalLight(0xffffff, 1); dir.position.set(5,10,7); scene.add(dir);
+    scene.add(new THREE.AmbientLight(0x404040));
 
-    yawObject = new THREE.Object3D();
-    yawObject.position.y = 2;
-    yawObject.add(pitchObject);
+    // Sol
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20,20), new THREE.MeshPhongMaterial({color:0x228B22}));
+    floor.rotation.x = -Math.PI/2; scene.add(floor);
 
-    scene.add(yawObject);
+    // Murs (carré 20x20, 4 de haut)
+    const wallMat = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
+    scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(20,4,0.5), wallMat), { position: new THREE.Vector3(0,2,-10) }));
+    scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(20,4,0.5), wallMat), { position: new THREE.Vector3(0,2, 10) }));
+    scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.5,4,20), wallMat), { position: new THREE.Vector3(-10,2,0) }));
+    scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.5,4,20), wallMat), { position: new THREE.Vector3( 10,2,0) }));
 
-    const floorGeometry = new THREE.PlaneGeometry(20, 20);
-    const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x228B22 });
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -Math.PI/2;
-    scene.add(floor);
-
-    const wallMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
-    const wall1 = new THREE.Mesh(new THREE.BoxGeometry(20, 4, 0.5), wallMaterial);
-    wall1.position.set(0, 2, -10);
-    scene.add(wall1);
-
-    const wall2 = new THREE.Mesh(new THREE.BoxGeometry(20, 4, 0.5), wallMaterial);
-    wall2.position.set(0, 2, 10);
-    scene.add(wall2);
-
-    const wall3 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 20), wallMaterial);
-    wall3.position.set(-10, 2, 0);
-    scene.add(wall3);
-
-    const wall4 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 20), wallMaterial);
-    wall4.position.set(10, 2, 0);
-    scene.add(wall4);
-
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(5, 10, 7);
-    scene.add(light);
-
-    const ambientLight = new THREE.AmbientLight(0x404040);
-    scene.add(ambientLight);
-
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    // Renderer
+    renderer = new THREE.WebGLRenderer({ antialias:true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('keyup', onKeyUp);
-    window.addEventListener('resize', onWindowResize);
+    // --- Camera Controls (open source): PointerLockControls ---
+    controls = new PointerLockControls(camera, document.body);
+    scene.add(controls.getObject());
+    controls.getObject().position.set(0, 2, 0); // hauteur "oeil"
 
-    // Pointer lock automatique au démarrage
-    if (document.body.requestPointerLock) {
-      document.body.requestPointerLock();
+    // Essayer de locker automatiquement, avec garde-fous si non supporté
+    const canLock = !!(document.body.requestPointerLock || document.body.mozRequestPointerLock || document.body.webkitRequestPointerLock);
+    if (canLock) {
+      try{ controls.lock(); }catch(e){ console.warn('PointerLock auto refusé:', e); }
+      statusEl.textContent = 'Pointer Lock prêt (auto)';
+      controls.addEventListener('lock', ()=> statusEl.textContent = 'Pointer Lock: actif');
+      controls.addEventListener('unlock', ()=> statusEl.textContent = 'Pointer Lock: inactif');
+    } else {
+      statusEl.textContent = 'Sans Pointer Lock (drag actif)';
+      enableDragLookFallback();
     }
 
-    document.addEventListener('pointerlockchange', () => {
-      pointerLocked = (document.pointerLockElement === document.body);
-      document.getElementById('instructions').style.display = pointerLocked ? 'none' : 'block';
-    });
+    // Clavier ZQSD
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
 
-    document.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('resize', onWindowResize);
+
+    // Diagnostics ("tests")
+    console.assert(!!THREE && !!renderer && !!controls, 'Init OK');
+    console.assert(typeof controls.moveForward === 'function', 'PointerLockControls chargé');
   }
 
-  function onWindowResize() {
-    camera.aspect = window.innerWidth/window.innerHeight;
+  function enableDragLookFallback(){
+    let dragging=false, lastX=0, lastY=0; const SENS=0.0025; const PI_2 = Math.PI/2;
+    const euler = new THREE.Euler(0,0,0,'YXZ');
+
+    const onMove = (dx,dy)=>{
+      euler.setFromQuaternion(camera.quaternion);
+      euler.y -= dx * SENS; // yaw
+      euler.x -= dy * SENS; // pitch
+      euler.x = Math.max(-PI_2, Math.min(PI_2, euler.x));
+      camera.quaternion.setFromEuler(euler);
+    };
+
+    document.addEventListener('mousedown', e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; });
+    document.addEventListener('mouseup',   ()=>{ dragging=false; });
+    document.addEventListener('mousemove', e=>{ if(!dragging) return; const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; onMove(dx,dy); });
+
+    document.addEventListener('touchstart', e=>{ if(e.touches.length!==1) return; dragging=true; lastX=e.touches[0].clientX; lastY=e.touches[0].clientY; }, {passive:true});
+    document.addEventListener('touchend',   ()=>{ dragging=false; }, {passive:true});
+    document.addEventListener('touchmove',  e=>{ if(!dragging||e.touches.length!==1) return; const t=e.touches[0]; const dx=t.clientX-lastX, dy=t.clientY-lastY; lastX=t.clientX; lastY=t.clientY; onMove(dx,dy); }, {passive:true});
+  }
+
+  function onWindowResize(){
+    camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
-  function onKeyDown(event) {
-    switch(event.key.toLowerCase()) {
+  function onKeyDown(e){
+    switch(e.key.toLowerCase()){
       case 'z': moveForward = true; break;
       case 's': moveBackward = true; break;
       case 'q': moveLeft = true; break;
       case 'd': moveRight = true; break;
     }
   }
-
-  function onKeyUp(event) {
-    switch(event.key.toLowerCase()) {
+  function onKeyUp(e){
+    switch(e.key.toLowerCase()){
       case 'z': moveForward = false; break;
       case 's': moveBackward = false; break;
       case 'q': moveLeft = false; break;
@@ -128,52 +140,27 @@
     }
   }
 
-  let PI_2 = Math.PI / 2;
-
-  function onMouseMove(event) {
-    if (!pointerLocked) return;
-    let movementX = event.movementX || 0;
-    let movementY = event.movementY || 0;
-    yawObject.rotation.y -= movementX * 0.002;
-    pitchObject.rotation.x -= movementY * 0.002;
-    pitchObject.rotation.x = Math.max(-PI_2, Math.min(PI_2, pitchObject.rotation.x));
-  }
-
-  function animate() {
+  function animate(){
     requestAnimationFrame(animate);
+
     const time = performance.now();
     const delta = (time - prevTime) / 1000;
-    velocity.set(0, 0, 0);
 
-    const forward = new THREE.Vector3(0, 0, -1);
-    forward.applyQuaternion(yawObject.quaternion);
-    forward.y = 0;
-    forward.normalize();
+    // Déplacement via PointerLockControls
+    direction.set(0,0,0);
+    direction.z = (moveForward?1:0) - (moveBackward?1:0);
+    direction.x = (moveRight?1:0) - (moveLeft?1:0);
+    if (direction.lengthSq() > 0) direction.normalize();
 
-    const right = new THREE.Vector3();
-    right.crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
+    const step = SPEED * delta;
+    if (direction.z !== 0) controls.moveForward( step * direction.z );
+    if (direction.x !== 0) controls.moveRight(   step * direction.x );
 
-    if (moveForward) velocity.add(forward);
-    if (moveBackward) velocity.sub(forward);
-    if (moveRight) velocity.add(right);
-    if (moveLeft) velocity.sub(right);
-
-    if (velocity.length() > 0) {
-      velocity.normalize();
-      velocity.multiplyScalar(5 * delta);
-    }
-
-    const nextPos = yawObject.position.clone().add(velocity);
+    // Limites carte
+    const p = controls.getObject().position;
     const limit = 9.5;
-
-    if (
-      nextPos.x > -limit &&
-      nextPos.x < limit &&
-      nextPos.z > -limit &&
-      nextPos.z < limit
-    ) {
-      yawObject.position.copy(nextPos);
-    }
+    p.x = Math.max(-limit, Math.min(limit, p.x));
+    p.z = Math.max(-limit, Math.min(limit, p.z));
 
     prevTime = time;
     renderer.render(scene, camera);
@@ -181,7 +168,6 @@
 </script>
 </body>
 </html>
-
 
 
 
