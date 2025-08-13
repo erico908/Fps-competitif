@@ -2,84 +2,80 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>FPS avec bouton démarrage</title>
+  <title>FPS avec souris et clavier</title>
   <style>
-    body { margin: 0; overflow: hidden; }
+    body { margin: 0; overflow: hidden; background: black; }
     canvas { display: block; }
+    #ui {
+      position: absolute;
+      top: 10px; left: 10px;
+      color: white;
+      font-family: Arial, sans-serif;
+      background: rgba(0,0,0,0.5);
+      padding: 10px;
+      border-radius: 5px;
+      max-width: 300px;
+      z-index: 10;
+    }
     #startBtn {
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      padding: 20px 40px;
-      font-size: 20px;
+      padding: 15px 30px;
+      font-size: 18px;
       cursor: pointer;
-      background: #222;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      z-index: 100;
+      z-index: 20;
     }
   </style>
 </head>
 <body>
+<div id="ui">
+  <p>Déplacements : Z S Q D</p>
+  <p>Regarder autour : souris</p>
+  <p>Esc pour libérer la souris</p>
+</div>
 <button id="startBtn">Commencer</button>
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 <script>
   let camera, scene, renderer;
   let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
   let velocity = new THREE.Vector3();
   let prevTime = performance.now();
-
   let pitchObject, yawObject;
   let pointerLocked = false;
 
-  init();
-  animate();
+  const PI_2 = Math.PI / 2;
 
   function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-
     pitchObject = new THREE.Object3D();
     pitchObject.add(camera);
-
     yawObject = new THREE.Object3D();
     yawObject.position.y = 2;
     yawObject.add(pitchObject);
-
     scene.add(yawObject);
 
-    const floorGeometry = new THREE.PlaneGeometry(20, 20);
-    const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x228B22 });
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -Math.PI/2;
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshPhongMaterial({ color: 0x228B22 }));
+    floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
 
     const wallMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
     const wall1 = new THREE.Mesh(new THREE.BoxGeometry(20, 4, 0.5), wallMaterial);
-    wall1.position.set(0, 2, -10);
-    scene.add(wall1);
-
+    wall1.position.set(0, 2, -10); scene.add(wall1);
     const wall2 = new THREE.Mesh(new THREE.BoxGeometry(20, 4, 0.5), wallMaterial);
-    wall2.position.set(0, 2, 10);
-    scene.add(wall2);
-
+    wall2.position.set(0, 2, 10); scene.add(wall2);
     const wall3 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 20), wallMaterial);
-    wall3.position.set(-10, 2, 0);
-    scene.add(wall3);
-
+    wall3.position.set(-10, 2, 0); scene.add(wall3);
     const wall4 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 20), wallMaterial);
-    wall4.position.set(10, 2, 0);
-    scene.add(wall4);
+    wall4.position.set(10, 2, 0); scene.add(wall4);
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(5, 10, 7);
-    scene.add(light);
-
-    const ambientLight = new THREE.AmbientLight(0x404040);
-    scene.add(ambientLight);
+    light.position.set(5, 10, 7); scene.add(light);
+    scene.add(new THREE.AmbientLight(0x404040));
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -88,17 +84,11 @@
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
     window.addEventListener('resize', onWindowResize);
-
-    document.addEventListener('pointerlockchange', () => {
-      pointerLocked = (document.pointerLockElement === document.body);
-    });
-
     document.addEventListener('mousemove', onMouseMove);
 
-    // Bouton démarrage
-    document.getElementById("startBtn").addEventListener("click", () => {
-      document.body.requestPointerLock();
-      document.getElementById("startBtn").style.display = "none";
+    document.addEventListener('pointerlockchange', () => {
+      pointerLocked = (document.pointerLockElement === renderer.domElement);
+      document.getElementById('ui').style.display = pointerLocked ? 'none' : 'block';
     });
   }
 
@@ -116,7 +106,6 @@
       case 'd': moveRight = true; break;
     }
   }
-
   function onKeyUp(event) {
     switch(event.key.toLowerCase()) {
       case 'z': moveForward = false; break;
@@ -125,8 +114,6 @@
       case 'd': moveRight = false; break;
     }
   }
-
-  let PI_2 = Math.PI / 2;
 
   function onMouseMove(event) {
     if (!pointerLocked) return;
@@ -163,7 +150,6 @@
 
     const nextPos = yawObject.position.clone().add(velocity);
     const limit = 9.5;
-
     if (
       nextPos.x > -limit &&
       nextPos.x < limit &&
@@ -176,10 +162,17 @@
     prevTime = time;
     renderer.render(scene, camera);
   }
+
+  document.getElementById('startBtn').addEventListener('click', () => {
+    init();
+    animate();
+    // Demander le pointer lock sur le canvas
+    renderer.domElement.requestPointerLock();
+    document.getElementById('startBtn').style.display = 'none';
+  });
 </script>
 </body>
 </html>
-
 
 
 
