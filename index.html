@@ -1,303 +1,138 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>FPS Mobile – Joystick + Drag Camera</title>
+<meta charset="UTF-8">
+<title>FPS Mobile</title>
 <style>
-  :root {
-    --joy-size: 120px;         /* diamètre du joystick */
-    --joy-knob: 60px;          /* diamètre du bouton */
-  }
-  html, body {
-    margin: 0; padding: 0; height: 100%;
-    overflow: hidden;
-    background: #000;
-    /* Désactive le zoom/pan par défaut sur mobile (gestes) */
+  body { margin:0; overflow:hidden; background:#000; }
+  canvas { display:block; }
+  #joystickLeft, #joystickRight {
+    position: absolute;
+    bottom: 20px;
+    width: 100px;
+    height: 100px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
     touch-action: none;
   }
-  canvas { display: block; }
-
-  /* Joystick container */
-  #joystick {
-    position: absolute;
-    left: 16px; bottom: 16px;
-    width: var(--joy-size); height: var(--joy-size);
-    border-radius: 50%;
-    background: rgba(255,255,255,0.08);
-    border: 2px solid rgba(255,255,255,0.2);
-    box-sizing: border-box;
-    z-index: 10;
-  }
-  #joy-knob {
-    position: absolute;
-    left: calc(50% - var(--joy-knob)/2);
-    top:  calc(50% - var(--joy-knob)/2);
-    width: var(--joy-knob); height: var(--joy-knob);
-    border-radius: 50%;
-    background: rgba(255,255,255,0.35);
-    border: 2px solid rgba(255,255,255,0.5);
-    backdrop-filter: blur(2px);
-    touch-action: none;
-  }
-
-  /* Indication zone de visée (moitié droite) – optionnelle et légère */
-  #lookHint {
-    position: absolute;
-    right: 0; top: 0;
-    width: 50vw; height: 100vh;
-    z-index: 5;
-  }
-  /* Réticule simple */
-  #reticle {
-    position: absolute; left: 50%; top: 50%;
-    width: 20px; height: 20px;
-    margin-left: -10px; margin-top: -10px;
-    pointer-events: none; z-index: 2;
-  }
-  #reticle::before, #reticle::after {
-    content: "";
-    position: absolute;
-    left: 9px; top: 0; width: 2px; height: 20px; background: rgba(255,255,255,0.7);
-  }
-  #reticle::after {
-    transform: rotate(90deg);
-    transform-origin: 50% 50%;
-  }
+  #joystickLeft { left: 20px; }
+  #joystickRight { right: 20px; }
 </style>
 </head>
 <body>
-<div id="joystick">
-  <div id="joy-knob"></div>
-</div>
-<div id="lookHint"></div>
-<div id="reticle"></div>
+<div id="joystickLeft"></div>
+<div id="joystickRight"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 <script>
-/* =========================
-   1) Scène de base (Three.js)
-   ========================= */
-let scene, camera, renderer;
-let yawObject, pitchObject;
+let camera, scene, renderer;
+let pitchObject, yawObject;
+let velocity = new THREE.Vector3();
+let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false;
 let prevTime = performance.now();
 
-// Vitesse
-const MOVE_SPEED = 5;        // unités / seconde
-const LOOK_SENS  = 0.18;     // degrés par pixel (touch)
+function init() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb);
 
-// Init
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+
+    pitchObject = new THREE.Object3D();
+    pitchObject.add(camera);
+
+    yawObject = new THREE.Object3D();
+    yawObject.position.y = 2;
+    yawObject.add(pitchObject);
+    scene.add(yawObject);
+
+    // Sol
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshPhongMaterial({color:0x228B22}));
+    floor.rotation.x = -Math.PI/2;
+    scene.add(floor);
+
+    // Murs
+    const wallMat = new THREE.MeshPhongMaterial({color:0x8B4513});
+    const wall1 = new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat); wall1.position.set(-10,2.5,0); scene.add(wall1);
+    const wall2 = new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat); wall2.position.set(10,2.5,0); scene.add(wall2);
+    const wall3 = new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat); wall3.position.set(0,2.5,-10); scene.add(wall3);
+    const wall4 = new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat); wall4.position.set(0,2.5,10); scene.add(wall4);
+
+    // Lumière
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5,10,7);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0x404040));
+
+    renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    window.addEventListener('resize', ()=>{
+        camera.aspect = window.innerWidth/window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    initJoysticks();
+}
+
+function initJoysticks() {
+    const left = document.getElementById('joystickLeft');
+    const right = document.getElementById('joystickRight');
+
+    let leftStart = null, rightStart = null;
+
+    left.addEventListener('touchstart', e=>{
+        leftStart = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+    });
+    left.addEventListener('touchmove', e=>{
+        let dx = e.touches[0].clientX - leftStart.x;
+        let dy = e.touches[0].clientY - leftStart.y;
+        moveForward = dy < -20;
+        moveBackward = dy > 20;
+        moveLeft = dx < -20;
+        moveRight = dx > 20;
+    });
+    left.addEventListener('touchend', ()=>{
+        moveForward=false; moveBackward=false; moveLeft=false; moveRight=false;
+    });
+
+    right.addEventListener('touchstart', e=>{
+        rightStart = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+    });
+    right.addEventListener('touchmove', e=>{
+        let dx = e.touches[0].clientX - rightStart.x;
+        let dy = e.touches[0].clientY - rightStart.y;
+        yawObject.rotation.y -= dx * 0.002;
+        pitchObject.rotation.x -= dy * 0.002;
+        pitchObject.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitchObject.rotation.x));
+        rightStart = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+    });
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    const time = performance.now();
+    const delta = (time - prevTime) / 1000;
+    velocity.set(0,0,0);
+
+    const forward = new THREE.Vector3(0,0,-1).applyQuaternion(yawObject.quaternion); forward.y=0; forward.normalize();
+    const right = new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
+
+    if(moveForward) velocity.add(forward);
+    if(moveBackward) velocity.sub(forward);
+    if(moveRight) velocity.add(right);
+    if(moveLeft) velocity.sub(right);
+
+    if(velocity.length()>0) velocity.normalize().multiplyScalar(5*delta);
+    yawObject.position.add(velocity);
+
+    prevTime = time;
+    renderer.render(scene, camera);
+}
+
 init();
 animate();
-
-function init(){
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb);
-
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-
-  pitchObject = new THREE.Object3D();
-  pitchObject.add(camera);
-  yawObject = new THREE.Object3D();
-  yawObject.position.set(0, 2, 5);
-  yawObject.add(pitchObject);
-  scene.add(yawObject);
-
-  // Sol
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(50, 50),
-    new THREE.MeshPhongMaterial({ color: 0x228B22 })
-  );
-  floor.rotation.x = -Math.PI/2;
-  scene.add(floor);
-
-  // Murs
-  const wallMat = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
-  const wall1 = new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat); wall1.position.set(-10,2.5,0); scene.add(wall1);
-  const wall2 = new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat); wall2.position.set(10,2.5,0); scene.add(wall2);
-  const wall3 = new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat); wall3.position.set(0,2.5,-10); scene.add(wall3);
-  const wall4 = new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat); wall4.position.set(0,2.5,10); scene.add(wall4);
-
-  // Lumière
-  const sun = new THREE.DirectionalLight(0xffffff, 1);
-  sun.position.set(5, 10, 7);
-  scene.add(sun);
-  scene.add(new THREE.AmbientLight(0x404040));
-
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)); // limite pour perf mobile
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
-
-  // Événements
-  window.addEventListener('resize', onResize);
-  setupMobileControls();
-}
-
-function onResize(){
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-/* =======================================
-   2) Joystick virtuel (déplacements)
-   ======================================= */
-const joyBase = document.getElementById('joystick');
-const joyKnob = document.getElementById('joy-knob');
-
-const JOY_R = parseInt(getComputedStyle(joyBase).width) / 2;     // rayon base
-const KNOB_R = parseInt(getComputedStyle(joyKnob).width) / 2;    // rayon knob
-
-let joyActiveId = null;
-let joyCx = 0, joyCy = 0; // centre en px
-let joyDx = 0, joyDy = 0; // déplacement normalisé [-1..1]
-
-function setupMobileControls(){
-  // Calcul du centre
-  const rect = joyBase.getBoundingClientRect();
-  joyCx = rect.left + rect.width/2;
-  joyCy = rect.top  + rect.height/2;
-
-  // Gestion joystick (pointer events → support touch + souris)
-  joyBase.addEventListener('pointerdown', joyStart, {passive:false});
-  window.addEventListener('pointermove', joyMove, {passive:false});
-  window.addEventListener('pointerup', joyEnd, {passive:false});
-  window.addEventListener('pointercancel', joyEnd, {passive:false});
-
-  // Zone “look” : moitié droite de l’écran
-  const lookZone = document.getElementById('lookHint');
-  lookZone.addEventListener('pointerdown', lookStart, {passive:false});
-  window.addEventListener('pointermove', lookMove, {passive:false});
-  window.addEventListener('pointerup', lookEnd, {passive:false});
-  window.addEventListener('pointercancel', lookEnd, {passive:false});
-
-  // Bonus: clavier si on teste sur desktop
-  document.addEventListener('keydown', e => {
-    if (e.key === 'z' || e.key === 'w') joyDy = -1;
-    if (e.key === 's') joyDy = 1;
-    if (e.key === 'q' || e.key === 'a') joyDx = -1;
-    if (e.key === 'd') joyDx = 1;
-  });
-  document.addEventListener('keyup', e => {
-    if (['z','w','s','q','a','d'].includes(e.key.toLowerCase())) {
-      joyDx = 0; joyDy = 0;
-      centerKnob();
-    }
-  });
-}
-
-function joyStart(e){
-  if (joyActiveId !== null) return;
-  joyActiveId = e.pointerId;
-  moveKnob(e.clientX, e.clientY);
-  e.preventDefault();
-}
-function joyMove(e){
-  if (joyActiveId !== e.pointerId) return;
-  moveKnob(e.clientX, e.clientY);
-  e.preventDefault();
-}
-function joyEnd(e){
-  if (joyActiveId !== e.pointerId) return;
-  joyActiveId = null;
-  joyDx = 0; joyDy = 0;
-  centerKnob();
-  e.preventDefault();
-}
-
-function moveKnob(px, py){
-  // Vector du centre → position doigt
-  let dx = px - joyCx;
-  let dy = py - joyCy;
-  const dist = Math.hypot(dx, dy);
-  const max = JOY_R - KNOB_R; // rayon utile
-  // Clamp
-  if (dist > max){
-    const s = max / dist;
-    dx *= s; dy *= s;
-  }
-  // Positionner le knob
-  joyKnob.style.left = (joyCx - KNOB_R + dx) + 'px';
-  joyKnob.style.top  = (joyCy - KNOB_R + dy) + 'px';
-  // Normaliser dans [-1..1]
-  joyDx = dx / max;
-  joyDy = dy / max;
-}
-function centerKnob(){
-  joyKnob.style.left = (joyCx - KNOB_R)+'px';
-  joyKnob.style.top  = (joyCy - KNOB_R)+'px';
-}
-
-/* =======================================
-   3) Glisser pour orienter la caméra (look)
-   ======================================= */
-let lookActiveId = null;
-let lastX = 0, lastY = 0;
-
-function lookStart(e){
-  if (lookActiveId !== null) return;
-  lookActiveId = e.pointerId;
-  lastX = e.clientX; lastY = e.clientY;
-  e.preventDefault();
-}
-function lookMove(e){
-  if (lookActiveId !== e.pointerId) return;
-  const dx = e.clientX - lastX;
-  const dy = e.clientY - lastY;
-  lastX = e.clientX; lastY = e.clientY;
-
-  // Sensibilité en radians
-  const yawDelta   = -THREE.MathUtils.degToRad(dx * LOOK_SENS);
-  const pitchDelta = -THREE.MathUtils.degToRad(dy * LOOK_SENS);
-
-  yawObject.rotation.y += yawDelta;
-  pitchObject.rotation.x = THREE.MathUtils.clamp(
-    pitchObject.rotation.x + pitchDelta,
-    -Math.PI/2, Math.PI/2
-  );
-  e.preventDefault();
-}
-function lookEnd(e){
-  if (lookActiveId !== e.pointerId) return;
-  lookActiveId = null;
-  e.preventDefault();
-}
-
-/* =========================
-   4) Boucle d’animation
-   ========================= */
-function animate(){
-  requestAnimationFrame(animate);
-  const now = performance.now();
-  const dt  = (now - prevTime) / 1000;
-  prevTime = now;
-
-  // Déplacement en fonction du joystick (joyDx, joyDy dans [-1..1])
-  // joyDy vers l’avant : -1 (haut du joystick)
-  const forwardMag = -joyDy; // inversé pour naturel: haut = avance
-  const strafeMag  =  joyDx;
-
-  // Vecteurs locaux
-  const forward = new THREE.Vector3(0,0,-1).applyQuaternion(yawObject.quaternion); forward.y = 0; forward.normalize();
-  const right   = new THREE.Vector3(1,0, 0).applyQuaternion(yawObject.quaternion); right.y = 0; right.normalize();
-
-  const move = new THREE.Vector3();
-  move.addScaledVector(forward, forwardMag * MOVE_SPEED * dt);
-  move.addScaledVector(right,   strafeMag  * MOVE_SPEED * dt);
-
-  yawObject.position.add(move);
-
-  renderer.render(scene, camera);
-}
-
-/* =========================
-   5) Conseils perf & UX
-   =========================
-   - Si c’est “saccadé”, baissez setPixelRatio (ligne init renderer).
-   - Le joystick peut être redimensionné via --joy-size / --joy-knob.
-   - Sur iOS/Safari : garder la page en plein écran (ajouter au Dock).
-*/
 </script>
 </body>
 </html>
