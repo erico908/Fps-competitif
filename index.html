@@ -2,35 +2,33 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>FPS Mobile Fluide</title>
+<title>FPS Mobile</title>
 <style>
-  body { margin:0; overflow:hidden; background:#000; touch-action: none; }
+  body { margin:0; overflow:hidden; background:#000; touch-action:none; }
   canvas { display:block; }
-  #joystickLeft {
-    position: absolute;
-    bottom: 40px;
-    left: 40px;
-    width: 150px;
-    height: 150px;
-    background: rgba(255,255,255,0.15);
-    border-radius: 50%;
-    touch-action: none;
+  #joystick {
+    position:absolute;
+    bottom:20px; left:20px;
+    width:140px; height:140px;
+    background:rgba(255,255,255,0.1);
+    border-radius:50%;
+    touch-action:none;
   }
-  #joystickKnob {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 60px;
-    height: 60px;
-    background: rgba(255,255,255,0.4);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
+  #stick {
+    position:absolute;
+    top:50%; left:50%;
+    width:60px; height:60px;
+    background:rgba(255,255,255,0.5);
+    border-radius:50%;
+    transform:translate(-50%, -50%);
+    touch-action:none;
   }
 </style>
 </head>
 <body>
-<div id="joystickLeft">
-  <div id="joystickKnob"></div>
+
+<div id="joystick">
+  <div id="stick"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
@@ -38,10 +36,22 @@
 let camera, scene, renderer;
 let pitchObject, yawObject;
 let velocity = new THREE.Vector3();
-let moveX = 0, moveY = 0;
+let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false;
 let prevTime = performance.now();
 
-function init() {
+// Sensibilité rotation
+let sensitivity = 0.002;
+let rotating = false;
+let lastTouchX, lastTouchY;
+
+// Joystick vars
+let joystick = document.getElementById("joystick");
+let stick = document.getElementById("stick");
+let joyCenter = {x:0,y:0};
+let joyTouchId = null;
+let joyX=0, joyY=0;
+
+function init(){
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
 
@@ -55,20 +65,17 @@ function init() {
     yawObject.add(pitchObject);
     scene.add(yawObject);
 
-    // Sol
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshPhongMaterial({color:0x228B22}));
     floor.rotation.x = -Math.PI/2;
     scene.add(floor);
 
-    // Murs
     const wallMat = new THREE.MeshPhongMaterial({color:0x8B4513});
-    const wall1 = new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat); wall1.position.set(-10,2.5,0); scene.add(wall1);
-    const wall2 = new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat); wall2.position.set(10,2.5,0); scene.add(wall2);
-    const wall3 = new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat); wall3.position.set(0,2.5,-10); scene.add(wall3);
-    const wall4 = new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat); wall4.position.set(0,2.5,10); scene.add(wall4);
+    scene.add(new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat)).position.set(-10,2.5,0);
+    scene.add(new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat)).position.set(10,2.5,0);
+    scene.add(new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat)).position.set(0,2.5,-10);
+    scene.add(new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat)).position.set(0,2.5,10);
 
-    // Lumières
-    const light = new THREE.DirectionalLight(0xffffff, 1);
+    const light = new THREE.DirectionalLight(0xffffff,1);
     light.position.set(5,10,7);
     scene.add(light);
     scene.add(new THREE.AmbientLight(0x404040));
@@ -78,86 +85,92 @@ function init() {
     document.body.appendChild(renderer.domElement);
 
     window.addEventListener('resize', ()=>{
-        camera.aspect = window.innerWidth/window.innerHeight;
+        camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    initJoystick();
-    initTouchLook();
+    // Touch events
+    document.addEventListener("touchstart", onTouchStart, {passive:false});
+    document.addEventListener("touchmove", onTouchMove, {passive:false});
+    document.addEventListener("touchend", onTouchEnd, {passive:false});
 }
 
-function initJoystick() {
-    const joystick = document.getElementById('joystickLeft');
-    const knob = document.getElementById('joystickKnob');
-    let startX, startY;
+function onTouchStart(e){
+    for(let t of e.changedTouches){
+        let tx = t.clientX;
+        let ty = t.clientY;
 
-    joystick.addEventListener('touchstart', e=>{
-        let touch = e.touches[0];
-        startX = touch.clientX;
-        startY = touch.clientY;
-    });
-
-    joystick.addEventListener('touchmove', e=>{
-        let touch = e.touches[0];
-        let dx = touch.clientX - startX;
-        let dy = touch.clientY - startY;
-        const maxDist = 50; // limite du mouvement du joystick
-        let dist = Math.min(Math.sqrt(dx*dx + dy*dy), maxDist);
-        let angle = Math.atan2(dy, dx);
-        knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
-
-        moveX = dx / maxDist;
-        moveY = dy / maxDist;
-    });
-
-    joystick.addEventListener('touchend', ()=>{
-        knob.style.transform = "translate(-50%, -50%)";
-        moveX = 0;
-        moveY = 0;
-    });
-}
-
-function initTouchLook() {
-    let lastX, lastY;
-    document.addEventListener('touchstart', e=>{
-        if(e.touches[0].clientX > window.innerWidth/2) {
-            lastX = e.touches[0].clientX;
-            lastY = e.touches[0].clientY;
+        if(tx < window.innerWidth/2 && joyTouchId === null){
+            joyTouchId = t.identifier;
+            joyCenter = {x: joystick.offsetLeft + joystick.offsetWidth/2, y: joystick.offsetTop + joystick.offsetHeight/2};
+        } else if(tx >= window.innerWidth/2){
+            rotating = true;
+            lastTouchX = tx;
+            lastTouchY = ty;
         }
-    });
-    document.addEventListener('touchmove', e=>{
-        if(e.touches[0].clientX > window.innerWidth/2) {
-            let dx = e.touches[0].clientX - lastX;
-            let dy = e.touches[0].clientY - lastY;
-            yawObject.rotation.y -= dx * 0.002;
-            pitchObject.rotation.x -= dy * 0.002;
+    }
+}
+
+function onTouchMove(e){
+    for(let t of e.changedTouches){
+        // Joystick control
+        if(t.identifier === joyTouchId){
+            let dx = t.clientX - joyCenter.x;
+            let dy = t.clientY - joyCenter.y;
+            let dist = Math.min(Math.sqrt(dx*dx + dy*dy), 50);
+            let angle = Math.atan2(dy, dx);
+            stick.style.left = (50 + Math.cos(angle) * dist) + "%";
+            stick.style.top  = (50 + Math.sin(angle) * dist) + "%";
+            joyX = Math.cos(angle) * (dist/50);
+            joyY = Math.sin(angle) * (dist/50);
+        }
+
+        // Camera rotation
+        if(rotating && t.clientX >= window.innerWidth/2){
+            let dx = t.clientX - lastTouchX;
+            let dy = t.clientY - lastTouchY;
+            yawObject.rotation.y -= dx * sensitivity;
+            pitchObject.rotation.x -= dy * sensitivity;
             pitchObject.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitchObject.rotation.x));
-            lastX = e.touches[0].clientX;
-            lastY = e.touches[0].clientY;
+            lastTouchX = t.clientX;
+            lastTouchY = t.clientY;
         }
-    });
+    }
 }
 
-function animate() {
+function onTouchEnd(e){
+    for(let t of e.changedTouches){
+        if(t.identifier === joyTouchId){
+            joyTouchId = null;
+            stick.style.left = "50%";
+            stick.style.top = "50%";
+            joyX = 0; joyY = 0;
+        }
+        if(rotating && t.clientX >= window.innerWidth/2){
+            rotating = false;
+        }
+    }
+}
+
+function animate(){
     requestAnimationFrame(animate);
-    const time = performance.now();
-    const delta = (time - prevTime) / 1000;
+    let time = performance.now();
+    let delta = (time - prevTime) / 1000;
+
+    // Movement
+    let forward = new THREE.Vector3(0,0,-1).applyQuaternion(yawObject.quaternion); forward.y=0; forward.normalize();
+    let right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
 
     velocity.set(0,0,0);
-
-    const forward = new THREE.Vector3(0,0,-1).applyQuaternion(yawObject.quaternion); forward.y=0; forward.normalize();
-    const right = new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
-
-    if(moveY < -0.2) velocity.add(forward.multiplyScalar(5 * delta));
-    if(moveY > 0.2) velocity.sub(forward.multiplyScalar(5 * delta));
-    if(moveX > 0.2) velocity.add(right.multiplyScalar(5 * delta));
-    if(moveX < -0.2) velocity.sub(right.multiplyScalar(5 * delta));
+    velocity.add(forward.clone().multiplyScalar(joyY));
+    velocity.add(right.clone().multiplyScalar(joyX));
+    velocity.multiplyScalar(5 * delta);
 
     yawObject.position.add(velocity);
 
-    prevTime = time;
     renderer.render(scene, camera);
+    prevTime = time;
 }
 
 init();
@@ -165,6 +178,7 @@ animate();
 </script>
 </body>
 </html>
+
 
 
 
