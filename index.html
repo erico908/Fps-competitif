@@ -2,33 +2,43 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>FPS Mobile</title>
+<title>FPS Mobile Fluide</title>
 <style>
-  body { margin:0; overflow:hidden; background:#000; }
+  body { margin:0; overflow:hidden; background:#000; touch-action: none; }
   canvas { display:block; }
-  #joystickLeft, #joystickRight {
+  #joystickLeft {
     position: absolute;
-    bottom: 20px;
-    width: 100px;
-    height: 100px;
-    background: rgba(255,255,255,0.2);
+    bottom: 40px;
+    left: 40px;
+    width: 150px;
+    height: 150px;
+    background: rgba(255,255,255,0.15);
     border-radius: 50%;
     touch-action: none;
   }
-  #joystickLeft { left: 20px; }
-  #joystickRight { right: 20px; }
+  #joystickKnob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 60px;
+    height: 60px;
+    background: rgba(255,255,255,0.4);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+  }
 </style>
 </head>
 <body>
-<div id="joystickLeft"></div>
-<div id="joystickRight"></div>
+<div id="joystickLeft">
+  <div id="joystickKnob"></div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 <script>
 let camera, scene, renderer;
 let pitchObject, yawObject;
 let velocity = new THREE.Vector3();
-let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false;
+let moveX = 0, moveY = 0;
 let prevTime = performance.now();
 
 function init() {
@@ -57,7 +67,7 @@ function init() {
     const wall3 = new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat); wall3.position.set(0,2.5,-10); scene.add(wall3);
     const wall4 = new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat); wall4.position.set(0,2.5,10); scene.add(wall4);
 
-    // Lumière
+    // Lumières
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(5,10,7);
     scene.add(light);
@@ -73,40 +83,59 @@ function init() {
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    initJoysticks();
+    initJoystick();
+    initTouchLook();
 }
 
-function initJoysticks() {
-    const left = document.getElementById('joystickLeft');
-    const right = document.getElementById('joystickRight');
+function initJoystick() {
+    const joystick = document.getElementById('joystickLeft');
+    const knob = document.getElementById('joystickKnob');
+    let startX, startY;
 
-    let leftStart = null, rightStart = null;
-
-    left.addEventListener('touchstart', e=>{
-        leftStart = {x: e.touches[0].clientX, y: e.touches[0].clientY};
-    });
-    left.addEventListener('touchmove', e=>{
-        let dx = e.touches[0].clientX - leftStart.x;
-        let dy = e.touches[0].clientY - leftStart.y;
-        moveForward = dy < -20;
-        moveBackward = dy > 20;
-        moveLeft = dx < -20;
-        moveRight = dx > 20;
-    });
-    left.addEventListener('touchend', ()=>{
-        moveForward=false; moveBackward=false; moveLeft=false; moveRight=false;
+    joystick.addEventListener('touchstart', e=>{
+        let touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
     });
 
-    right.addEventListener('touchstart', e=>{
-        rightStart = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+    joystick.addEventListener('touchmove', e=>{
+        let touch = e.touches[0];
+        let dx = touch.clientX - startX;
+        let dy = touch.clientY - startY;
+        const maxDist = 50; // limite du mouvement du joystick
+        let dist = Math.min(Math.sqrt(dx*dx + dy*dy), maxDist);
+        let angle = Math.atan2(dy, dx);
+        knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
+
+        moveX = dx / maxDist;
+        moveY = dy / maxDist;
     });
-    right.addEventListener('touchmove', e=>{
-        let dx = e.touches[0].clientX - rightStart.x;
-        let dy = e.touches[0].clientY - rightStart.y;
-        yawObject.rotation.y -= dx * 0.002;
-        pitchObject.rotation.x -= dy * 0.002;
-        pitchObject.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitchObject.rotation.x));
-        rightStart = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+
+    joystick.addEventListener('touchend', ()=>{
+        knob.style.transform = "translate(-50%, -50%)";
+        moveX = 0;
+        moveY = 0;
+    });
+}
+
+function initTouchLook() {
+    let lastX, lastY;
+    document.addEventListener('touchstart', e=>{
+        if(e.touches[0].clientX > window.innerWidth/2) {
+            lastX = e.touches[0].clientX;
+            lastY = e.touches[0].clientY;
+        }
+    });
+    document.addEventListener('touchmove', e=>{
+        if(e.touches[0].clientX > window.innerWidth/2) {
+            let dx = e.touches[0].clientX - lastX;
+            let dy = e.touches[0].clientY - lastY;
+            yawObject.rotation.y -= dx * 0.002;
+            pitchObject.rotation.x -= dy * 0.002;
+            pitchObject.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitchObject.rotation.x));
+            lastX = e.touches[0].clientX;
+            lastY = e.touches[0].clientY;
+        }
     });
 }
 
@@ -114,17 +143,17 @@ function animate() {
     requestAnimationFrame(animate);
     const time = performance.now();
     const delta = (time - prevTime) / 1000;
+
     velocity.set(0,0,0);
 
     const forward = new THREE.Vector3(0,0,-1).applyQuaternion(yawObject.quaternion); forward.y=0; forward.normalize();
     const right = new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
 
-    if(moveForward) velocity.add(forward);
-    if(moveBackward) velocity.sub(forward);
-    if(moveRight) velocity.add(right);
-    if(moveLeft) velocity.sub(right);
+    if(moveY < -0.2) velocity.add(forward.multiplyScalar(5 * delta));
+    if(moveY > 0.2) velocity.sub(forward.multiplyScalar(5 * delta));
+    if(moveX > 0.2) velocity.add(right.multiplyScalar(5 * delta));
+    if(moveX < -0.2) velocity.sub(right.multiplyScalar(5 * delta));
 
-    if(velocity.length()>0) velocity.normalize().multiplyScalar(5*delta);
     yawObject.position.add(velocity);
 
     prevTime = time;
@@ -136,6 +165,7 @@ animate();
 </script>
 </body>
 </html>
+
 
 
 
