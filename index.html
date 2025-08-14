@@ -2,187 +2,94 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>FPS Mobile</title>
+<title>FPS Mobile Simple</title>
 <style>
-  body { margin:0; overflow:hidden; touch-action:none; }
-  canvas { display:block; }
-  #joy {
-    position:absolute; bottom:20px; left:20px;
-    width:120px; height:120px; border-radius:50%;
-    background:rgba(0,0,0,0.3);
-    touch-action:none;
-  }
-  #knob {
-    position:absolute; width:60px; height:60px; border-radius:50%;
-    background:rgba(0,0,0,0.6); top:30px; left:30px;
-  }
-  #sensiSlider {
-    position:absolute; top:20px; right:20px; z-index:100;
-  }
-  #jumpBtn {
-    position:absolute; bottom:160px; right:20px; width:80px; height:80px;
-    background:rgba(255,255,255,0.5); border-radius:50%; font-size:20px;
-    display:flex; align-items:center; justify-content:center; user-select:none;
-  }
+body { margin:0; overflow:hidden; touch-action:none; }
+canvas { display:block; }
+#joy { position:absolute; bottom:20px; left:20px; width:100px; height:100px; border-radius:50%; background:rgba(0,0,0,0.3); }
+#knob { position:absolute; width:50px; height:50px; border-radius:50%; background:rgba(0,0,0,0.6); top:25px; left:25px; }
 </style>
 </head>
 <body>
 <div id="joy"><div id="knob"></div></div>
-<input type="range" id="sensiSlider" min="1" max="10" value="5">
-<div id="jumpBtn">↑</div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 <script>
-// --- Variables de base ---
-let camera, scene, renderer;
-let pitchObject, yawObject;
-let velocity = new THREE.Vector3();
-let prevTime = performance.now();
-let onGround = true;
+// --- Scene ---
+let scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+let renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-// --- Paramètres ---
-let moveX = 0, moveY = 0; // joystick
-let sensi = 0.002;
-const JOY_RADIUS = 60, KNOB_SIZE=60;
+// --- Contrôleur FPS simple ---
+let pitchObject = new THREE.Object3D();
+pitchObject.add(camera);
+let yawObject = new THREE.Object3D();
+yawObject.position.y = 2;
+yawObject.add(pitchObject);
+scene.add(yawObject);
 
-// --- Init scène ---
-function init(){
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
-
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-
-    // Contrôleur FPS
-    pitchObject = new THREE.Object3D();
-    pitchObject.add(camera);
-
-    yawObject = new THREE.Object3D();
-    yawObject.position.y = 2;
-    yawObject.add(pitchObject);
-    scene.add(yawObject);
-
-    // Sol et murs
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshPhongMaterial({color:0x228B22}));
-    floor.rotation.x = -Math.PI/2; scene.add(floor);
-
-    const wallMat = new THREE.MeshPhongMaterial({color:0x8B4513});
-    const walls = [
-        new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat), // gauche
-        new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat), // droite
-        new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat), // haut
-        new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat)  // bas
-    ];
-    walls[0].position.set(-10,2.5,0); walls[1].position.set(10,2.5,0);
-    walls[2].position.set(0,2.5,-10); walls[3].position.set(0,2.5,10);
-    walls.forEach(w=>scene.add(w));
-
-    // Lumière
-    const light = new THREE.DirectionalLight(0xffffff,1);
-    light.position.set(5,10,7); scene.add(light);
-    scene.add(new THREE.AmbientLight(0x404040));
-
-    // Renderer
-    renderer = new THREE.WebGLRenderer({antialias:true});
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    window.addEventListener('resize',()=> {
-        camera.aspect = window.innerWidth/window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-}
-init();
+// Sol simple
+let floor = new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshBasicMaterial({color:0x228B22}));
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
 
 // --- Joystick ---
 let joy = document.getElementById('joy');
 let knob = document.getElementById('knob');
 let joyCenter = {x:0,y:0};
-function computeJoyCenter(){const r=joy.getBoundingClientRect(); joyCenter.x=r.left+r.width/2; joyCenter.y=r.top+r.height/2;}
-computeJoyCenter();
-window.addEventListener('resize',computeJoyCenter);
+function computeCenter(){const r=joy.getBoundingClientRect(); joyCenter.x=r.left+r.width/2; joyCenter.y=r.top+r.height/2;}
+computeCenter();
+window.addEventListener('resize',computeCenter);
 
 let joyId = null;
-function setKnobPosition(px, py){
-    const r=joy.getBoundingClientRect();
-    knob.style.left = `${px - KNOB_SIZE/2 - r.left}px`;
-    knob.style.top  = `${py - KNOB_SIZE/2 - r.top}px`;
+let moveX=0, moveY=0;
+
+function setKnob(x,y){knob.style.left = (x-joy.offsetLeft-25)+'px'; knob.style.top = (y-joy.offsetTop-25)+'px';}
+function resetKnob(){setKnob(joyCenter.x, joyCenter.y); moveX=0; moveY=0;}
+function updateJoy(x,y){
+    let dx = x-joyCenter.x, dy = y-joyCenter.y;
+    let dist = Math.hypot(dx,dy);
+    if(dist>50){ const s=50/dist; dx*=s; dy*=s; }
+    setKnob(joyCenter.x+dx, joyCenter.y+dy);
+    moveX = dx/50; moveY = -dy/50;
 }
-function resetKnob(){setKnobPosition(joyCenter.x, joyCenter.y); moveX=0; moveY=0;}
-function updateJoy(cx, cy){
-    let dx = cx - joyCenter.x;
-    let dy = cy - joyCenter.y;
-    const dist = Math.hypot(dx, dy);
-    const max = JOY_RADIUS;
-    if(dist>max){ const s=max/dist; dx*=s; dy*=s; }
-    setKnobPosition(joyCenter.x+dx, joyCenter.y+dy);
-    moveX = dx/max;
-    moveY = -dy/max;
-}
-joy.addEventListener('pointerdown', e=>{
-    if(joyId===null){ joyId=e.pointerId; e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); updateJoy(e.clientX,e.clientY); }
-});
+
+joy.addEventListener('pointerdown', e=>{ if(joyId===null){ joyId=e.pointerId; e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); updateJoy(e.clientX,e.clientY); }});
 window.addEventListener('pointermove', e=>{ if(e.pointerId===joyId) updateJoy(e.clientX,e.clientY); });
-window.addEventListener('pointerup', e=>{ if(e.pointerId===joyId){ joyId=null; resetKnob(); } });
+window.addEventListener('pointerup', e=>{ if(e.pointerId===joyId){ joyId=null; resetKnob(); }});
 
 // --- Caméra tactile ---
-let lastTouch = null;
+let lastTouch=null;
 document.addEventListener('touchstart', e=>{ if(e.target===joy) return; lastTouch=e.touches[0]; });
 document.addEventListener('touchmove', e=>{
     if(!lastTouch) return;
     const t = e.touches[0];
     const dx = t.clientX - lastTouch.clientX;
     const dy = t.clientY - lastTouch.clientY;
-    yawObject.rotation.y -= dx*sensi;
-    pitchObject.rotation.x -= dy*sensi;
-    const PI2 = Math.PI/2; pitchObject.rotation.x = Math.max(-PI2, Math.min(PI2, pitchObject.rotation.x));
-    lastTouch = t;
+    yawObject.rotation.y -= dx*0.002;
+    pitchObject.rotation.x -= dy*0.002;
+    const PI2=Math.PI/2; pitchObject.rotation.x=Math.max(-PI2, Math.min(PI2, pitchObject.rotation.x));
+    lastTouch=t;
 });
 document.addEventListener('touchend', e=>{ lastTouch=null; });
-
-// --- Saut ---
-document.getElementById('jumpBtn').addEventListener('click', ()=>{ if(onGround){velocity.y=5; onGround=false;} });
-
-// --- Sensibilité ---
-document.getElementById('sensiSlider').addEventListener('input', e=>{ sensi = 0.001 * e.target.value; });
-
-// --- Collision simple ---
-function checkCollisions(pos){
-    if(pos.x<-9.5) pos.x=-9.5;
-    if(pos.x>9.5) pos.x=9.5;
-    if(pos.z<-9.5) pos.z=-9.5;
-    if(pos.z>9.5) pos.z=9.5;
-    if(pos.y<2){ pos.y=2; velocity.y=0; onGround=true; }
-}
 
 // --- Animation ---
 function animate(){
     requestAnimationFrame(animate);
-    const time = performance.now();
-    const delta = (time-prevTime)/1000;
-
     // Mouvement joystick
     const forward = new THREE.Vector3(0,0,-1).applyQuaternion(yawObject.quaternion); forward.y=0; forward.normalize();
     const right = new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
-    let dir = new THREE.Vector3();
-    dir.add(forward.clone().multiplyScalar(moveY));
-    dir.add(right.clone().multiplyScalar(moveX));
-    if(dir.length()>0) dir.normalize().multiplyScalar(5*delta);
+    let dir = forward.clone().multiplyScalar(moveY*0.1).add(right.clone().multiplyScalar(moveX*0.1));
     yawObject.position.add(dir);
-
-    // Gravité
-    velocity.y -= 9.8*delta;
-    yawObject.position.y += velocity.y*delta;
-
-    // Collision
-    checkCollisions(yawObject.position);
-
-    prevTime = time;
     renderer.render(scene,camera);
 }
 animate();
 </script>
 </body>
 </html>
+
 
 
 
