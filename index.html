@@ -2,148 +2,170 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<title>FPS Mobile + AK + Cibles mouvantes</title>
+<title>FPS Mobile Semi-Réaliste</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <style>
-  body { margin:0; overflow:hidden; touch-action:none; background:#222; }
-  canvas { display:block; width:100vw; height:100vh; }
+body { margin:0; overflow:hidden; touch-action:none; background:#111; }
+canvas { display:block; width:100vw; height:100vh; }
 
-  #stick { position:absolute; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,0.45); display:none; z-index:10; }
-  #jumpBtn { position:absolute; bottom:18px; right:18px; width:80px; height:80px; border-radius:50%; background:rgba(255,255,255,0.35); text-align:center; font-size:24px; line-height:80px; color:#fff; z-index:10; }
-  #fireBtn { position:absolute; bottom:110px; right:18px; width:80px; height:80px; border-radius:50%; background:rgba(255,0,0,0.45); color:#fff;text-align:center;line-height:80px;font-size:20px;z-index:10; user-select:none; }
-  #reticle { position:absolute; pointer-events:none; z-index:20; left:50%; top:50%; width:16px; height:16px; margin-left:-8px; margin-top:-8px; }
-  #reticle::before,#reticle::after{ content:""; position:absolute; background:rgba(255,255,255,0.9); }
-  #reticle::before{ left:7px; top:0; width:2px; height:16px; }
-  #reticle::after { left:0; top:7px; width:16px; height:2px; }
-  #sensSlider { position:absolute; top:10px; left:10px; width:150px; z-index:10; }
-  #score { position:absolute; top:10px; right:10px; color:#fff; font-size:24px; z-index:10; }
+#stick { position:absolute; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,0.45); display:none; z-index:10; }
+#shootBtn { position:absolute; bottom:18px; right:18px; width:80px; height:80px; border-radius:50%; background:rgba(255,0,0,0.4); text-align:center; font-size:24px; line-height:80px; color:#fff; z-index:10; user-select:none; }
+#reticle { position:absolute; pointer-events:none; z-index:20; left:50%; top:50%; width:16px; height:16px; margin-left:-8px; margin-top:-8px; }
+#reticle::before,#reticle::after{ content:""; position:absolute; background:rgba(255,255,255,0.9); }
+#reticle::before{ left:7px; top:0; width:2px; height:16px; }
+#reticle::after { left:0; top:7px; width:16px; height:2px; }
+
+#sensSlider { position:absolute; top:10px; left:10px; z-index:10; width:150px; }
+#score { position:absolute; top:10px; right:10px; color:#fff; font-size:24px; z-index:10; }
 </style>
 </head>
 <body>
 <div id="stick"></div>
-<div id="jumpBtn">↑</div>
-<div id="fireBtn">Tirer</div>
+<div id="shootBtn">💥</div>
 <div id="reticle"></div>
 <input type="range" id="sensSlider" min="1" max="10" value="3">
 <div id="score">Score: 0</div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 <script>
-/*----- SCENE -----*/
+// ----- Scene de base -----
 let scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87cefa);
 
 let camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
 let pitch = new THREE.Object3D(); pitch.add(camera);
-let yaw = new THREE.Object3D(); yaw.position.set(0,1.8,0); yaw.add(pitch);
-scene.add(yaw);
+let yaw = new THREE.Object3D(); yaw.position.set(0,1.8,0); yaw.add(pitch); scene.add(yaw);
 
-/* ----- SOL + MURS ----- */
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(40,40), new THREE.MeshPhongMaterial({color:0x32CD32}));
+// Sol
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40,40), new THREE.MeshPhongMaterial({color:0x228B22}));
 floor.rotation.x = -Math.PI/2; scene.add(floor);
-const wallMat = new THREE.MeshPhongMaterial({color:0xFF6347});
-function addWall(w,h,d,x,z){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),wallMat);m.position.set(x,h/2,z);scene.add(m);}
-addWall(20,4,1,0,-10); addWall(20,4,1,0,10);
-addWall(1,4,20,-10,0); addWall(1,4,20,10,0);
 
+// Murs simples
+const wallMat = new THREE.MeshPhongMaterial({color:0x8B0000});
+function addWall(w,h,d,x,z){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),wallMat); m.position.set(x,h/2,z); scene.add(m);}
+addWall(20,4,1,0,-10); addWall(20,4,1,0,10); addWall(1,4,20,-10,0); addWall(1,4,20,10,0);
+
+// Lumières
 scene.add(new THREE.DirectionalLight(0xffffff,1).position.set(5,10,7));
 scene.add(new THREE.AmbientLight(0x404040));
 
-/* ----- RENDER ----- */
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 document.body.appendChild(renderer.domElement);
 
-/* ----- JOYSTICK (inchangé) -----*/
-let stick=document.getElementById("stick"), joyId=null, joyStartX=0, joyStartY=0, joyDX=0, joyDY=0;
-let MOVE_SPEED=5;
+// ----- Joystick stable -----
+let stick = document.getElementById("stick");
+let joyId = null, joyStartX=0, joyStartY=0, joyDX=0, joyDY=0;
+let MOVE_SPEED = 5;
+
 window.addEventListener("pointerdown",e=>{
-  if(e.clientX<innerWidth/2){ joyId=e.pointerId; joyStartX=e.clientX; joyStartY=e.clientY; stick.style.left=(joyStartX-30)+"px"; stick.style.top=(joyStartY-30)+"px"; stick.style.display="block"; }
+  if(e.clientX < innerWidth/2){
+    joyId = e.pointerId; joyStartX=e.clientX; joyStartY=e.clientY;
+    stick.style.left=(joyStartX-30)+"px"; stick.style.top=(joyStartY-30)+"px"; stick.style.display="block";
+  }
 });
 window.addEventListener("pointermove",e=>{
-  if(e.pointerId===joyId){ let dx=e.clientX-joyStartX,dy=e.clientY-joyStartY; const max=50; const d=Math.hypot(dx,dy); if(d>max){const s=max/d; dx*=s; dy*=s;} stick.style.left=(joyStartX+dx-30)+"px"; stick.style.top=(joyStartY+dy-30)+"px"; joyDX=dx/max; joyDY=-dy/max; }
+  if(e.pointerId===joyId){
+    let dx=e.clientX-joyStartX, dy=e.clientY-joyStartY;
+    const max=50, dist=Math.hypot(dx,dy);
+    if(dist>max){ const s=max/dist; dx*=s; dy*=s; }
+    stick.style.left=(joyStartX+dx-30)+"px"; stick.style.top=(joyStartY+dy-30)+"px";
+    joyDX=dx/max; joyDY=-dy/max;
+  }
 });
-window.addEventListener("pointerup",e=>{ if(e.pointerId===joyId){joyId=null; stick.style.display="none"; joyDX=0; joyDY=0;} });
+window.addEventListener("pointerup",e=>{
+  if(e.pointerId===joyId){ joyId=null; stick.style.display="none"; joyDX=0; joyDY=0; }
+});
 
-/* ----- CAMERA LOOK (inchangé) ----- */
+// ----- Caméra glisser coté droit -----
 let lookId=null,lastX=0,lastY=0; let SENS=0.003;
-document.getElementById("sensSlider").addEventListener("input",e=>{SENS=0.001*e.target.value;});
-window.addEventListener("pointerdown",e=>{if(e.clientX>innerWidth/2&&lookId==null){lookId=e.pointerId;lastX=e.clientX;lastY=e.clientY;}});
-window.addEventListener("pointermove",e=>{if(e.pointerId===lookId){let dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY; yaw.rotation.y-=dx*SENS; pitch.rotation.x-=dy*SENS; const lim=Math.PI/2; pitch.rotation.x=Math.max(-lim,Math.min(lim,pitch.rotation.x));}});
-window.addEventListener("pointerup",e=>{if(e.pointerId===lookId)lookId=null;});
+document.getElementById("sensSlider").addEventListener("input",()=>{SENS=0.001*parseInt(sensSlider.value);});
+window.addEventListener("pointerdown",e=>{
+  if(e.clientX>innerWidth/2 && lookId==null){ lookId=e.pointerId; lastX=e.clientX; lastY=e.clientY; }
+});
+window.addEventListener("pointermove",e=>{
+  if(e.pointerId===lookId){
+    let dx=e.clientX-lastX, dy=e.clientY-lastY;
+    lastX=e.clientX; lastY=e.clientY;
+    yaw.rotation.y -= dx*SENS; pitch.rotation.x -= dy*SENS;
+    const lim=Math.PI/2; pitch.rotation.x=Math.max(-lim,Math.min(lim,pitch.rotation.x));
+  }
+});
+window.addEventListener("pointerup",e=>{ if(e.pointerId===lookId) lookId=null; });
 
-/* ----- JUMP ----- */
+// ----- Jump -----
 let velY=0,onGround=true;
-document.getElementById("jumpBtn").addEventListener("pointerdown",()=>{if(onGround){velY=5;onGround=false;}});
 
-/*----- AK47 -----*/
-const gun = new THREE.Group();
-const body=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.2,1.5), new THREE.MeshPhongMaterial({color:0x333}));
-const barrel=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,1), new THREE.MeshPhongMaterial({color:0x111}));
-barrel.position.set(0,0,1.1);
-gun.add(body); gun.add(barrel);
-camera.add(gun);
-gun.position.set(0,-0.2,-0.7);
-
-/*--- CIBLES (bougent) ---*/
+// ----- Cibles -----
 const targets=[];
 for(let i=0;i<5;i++){
-  const t=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.4,32),new THREE.MeshPhongMaterial({color:0xff0000}));
-  t.position.set(Math.random()*16-8,0.2,Math.random()*16-8); scene.add(t); targets.push(t);
+  const t=new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshPhongMaterial({color:0xff0000}));
+  t.position.set(Math.random()*16-8,0.5,Math.random()*16-8); scene.add(t); targets.push(t);
 }
 
-/* SCORE */
-let score=0; document.getElementById("score").textContent="Score: 0";
+// ----- AK-47 simple -----
+const gun=new THREE.Group();
+const barrel=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.5), new THREE.MeshPhongMaterial({color:0x333333}));
+barrel.position.z=-0.25; gun.add(barrel);
+const body=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.05,0.3), new THREE.MeshPhongMaterial({color:0x555555}));
+body.position.z=-0.15; gun.add(body);
+camera.add(gun); gun.position.set(0,-0.1,-0.2);
+
+// Feu de tir
+const flash=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), new THREE.MeshBasicMaterial({color:0xffaa00}));
+flash.visible=false; scene.add(flash);
+
+// ----- Score -----
+let score=0;
 function shoot(){
-  const ray=new THREE.Raycaster();
-  ray.setFromCamera(new THREE.Vector2(0,0),camera);
-  const hit=ray.intersectObjects(targets,true);
-  if(hit.length>0&&hit[0].object.visible){
-    hit[0].object.visible=false;
-    score++; document.getElementById("score").textContent="Score: "+score;
+  const raycaster=new THREE.Raycaster(); raycaster.setFromCamera(new THREE.Vector2(0,0),camera);
+  const intersects=raycaster.intersectObjects(targets,true);
+  if(intersects.length>0){
+    let nearest=intersects[0].object;
+    // Aim assist léger: si proche, snap léger
+    targets.forEach(t=>{
+      const screenPos=new THREE.Vector3().copy(t.position).project(camera);
+      if(Math.hypot(screenPos.x,screenPos.y)<0.1) nearest=t;
+    });
+    nearest.visible=false; score++; document.getElementById("score").textContent="Score: "+score;
   }
+  // flash de tir
+  flash.position.set(camera.position.x,camera.position.y,camera.position.z-0.3); flash.visible=true;
+  setTimeout(()=>flash.visible=false,50);
 }
-/* Bouton Tirer */
-document.getElementById("fireBtn").addEventListener("pointerdown",shoot);
+document.getElementById("shootBtn").addEventListener("pointerdown",shoot);
 
-/* ---- LOOP ---- */
+// ----- Boucle principale -----
 let prev=performance.now();
 function loop(){
   requestAnimationFrame(loop);
-  let now=performance.now(),dt=(now-prev)/1000; prev=now;
+  let now=performance.now(), dt=(now-prev)/1000; prev=now;
 
-  // Move
-  const f=new THREE.Vector3(0,0,-1).applyQuaternion(yaw.quaternion);f.y=0;f.normalize();
-  const r=new THREE.Vector3(1,0,0).applyQuaternion(yaw.quaternion);r.y=0;r.normalize();
-  yaw.position.addScaledVector(f,joyDY*MOVE_SPEED*dt);
-  yaw.position.addScaledVector(r,joyDX*MOVE_SPEED*dt);
+  // Déplacement
+  let fwd=new THREE.Vector3(0,0,-1).applyQuaternion(yaw.quaternion); fwd.y=0; fwd.normalize();
+  let right=new THREE.Vector3(1,0,0).applyQuaternion(yaw.quaternion); right.y=0; right.normalize();
+  yaw.position.addScaledVector(fwd, joyDY*MOVE_SPEED*dt);
+  yaw.position.addScaledVector(right, joyDX*MOVE_SPEED*dt);
 
-  // Gravity
+  // Gravité
   velY-=9.8*dt; yaw.position.y+=velY*dt;
-  if(yaw.position.y<1.8){yaw.position.y=1.8;velY=0;onGround=true;}
+  if(yaw.position.y<1.8){ yaw.position.y=1.8; velY=0; onGround=true; }
 
-  // Collision (salle)
+  // Limites
   yaw.position.x=Math.max(-9.5,Math.min(9.5,yaw.position.x));
   yaw.position.z=Math.max(-9.5,Math.min(9.5,yaw.position.z));
-
-  // Move targets
-  targets.forEach(t=>{
-    if(t.visible){
-      t.position.x+=Math.sin(now*0.001)*dt;
-      t.position.z+=Math.cos(now*0.001)*dt;
-    }
-  });
 
   renderer.render(scene,camera);
 }
 loop();
 
-/* Désactiver pinch-zoom */
-window.addEventListener('touchmove', e=>{ if(e.touches.length>1) e.preventDefault(); },{passive:false});
+// Désactiver zoom mobile
+window.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault();},{passive:false});
 </script>
 </body>
 </html>
+
 
 
 
