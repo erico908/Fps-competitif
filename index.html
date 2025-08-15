@@ -8,7 +8,7 @@
   canvas { display:block; }
 
   /* Joystick */
-  #joystick { position:absolute; bottom:50px; left:50px; width:120px; height:120px; background:rgba(0,0,0,0.3); border-radius:50%; }
+  #joystick { position:absolute; width:120px; height:120px; background:rgba(0,0,0,0.3); border-radius:50%; display:none; }
   #stick { position:absolute; width:60px; height:60px; background:rgba(0,0,0,0.6); border-radius:50%; top:30px; left:30px; touch-action:none; }
 
   /* Bouton sauter */
@@ -34,7 +34,7 @@ let prevTime = performance.now();
 let sensitivity = 1;
 let canJump = false;
 
-// Init
+// Init Three.js
 function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x2c3e50); // ciel crépuscule
@@ -93,69 +93,62 @@ function onWindowResize(){
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Joystick mobile
+// Joystick mobile qui apparaît là où on touche
 let stick = document.getElementById('stick');
 let joystick = document.getElementById('joystick');
 let stickActive = false;
 let startX, startY;
 
-stick.addEventListener('touchstart', e => {
-    stickActive = true;
-    const touch = e.touches[0];
-    startX = touch.clientX;
-    startY = touch.clientY;
-});
-
-stick.addEventListener('touchmove', e => {
-    if(!stickActive) return;
-    const touch = e.touches[0];
-    let dx = touch.clientX - startX;
-    let dy = touch.clientY - startY;
-
-    dx = Math.max(-50, Math.min(50, dx));
-    dy = Math.max(-50, Math.min(50, dy));
-
-    stick.style.transform = `translate(${dx}px, ${dy}px)`;
-
-    move.forward = -dy/50;
-    move.right = dx/50;
-
-    e.preventDefault();
-});
-
-stick.addEventListener('touchend', e => {
-    stickActive = false;
-    stick.style.transform = `translate(0px,0px)`;
-    move.forward = 0;
-    move.right = 0;
-});
-
-// Caméra glissement tactile fluide
-let isDragging=false;
-let prevTouchX=0, prevTouchY=0;
 document.addEventListener('touchstart', e=>{
-    if(e.target===stick || e.target===document.getElementById('jumpBtn')) return;
-    isDragging=true;
-    prevTouchX = e.touches[0].clientX;
-    prevTouchY = e.touches[0].clientY;
+    const touch = e.touches[0];
+    if(touch.clientX < window.innerWidth/2){
+        // Joystick côté gauche
+        stickActive = true;
+        startX = touch.clientX;
+        startY = touch.clientY;
+        joystick.style.left = (startX-60) + 'px';
+        joystick.style.top = (startY-60) + 'px';
+        joystick.style.display = 'block';
+    } else {
+        // Caméra côté droit
+        camActive = true;
+        camPrevX = touch.clientX;
+        camPrevY = touch.clientY;
+    }
 });
+
+let camActive=false, camPrevX=0, camPrevY=0;
 
 document.addEventListener('touchmove', e=>{
-    if(!isDragging) return;
-    const touch = e.touches[0];
-    const dx = (touch.clientX - prevTouchX) * 0.008 * sensitivity;
-    const dy = (touch.clientY - prevTouchY) * 0.008 * sensitivity;
-
-    yawObject.rotation.y -= dx;
-    pitchObject.rotation.x -= dy;
-    pitchObject.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitchObject.rotation.x));
-
-    prevTouchX = touch.clientX;
-    prevTouchY = touch.clientY;
+    for(let touch of e.touches){
+        if(stickActive && touch.clientX < window.innerWidth/2){
+            let dx = touch.clientX - startX;
+            let dy = touch.clientY - startY;
+            dx = Math.max(-50, Math.min(50, dx));
+            dy = Math.max(-50, Math.min(50, dy));
+            stick.style.transform = `translate(${dx}px, ${dy}px)`;
+            move.forward = -dy/50;
+            move.right = dx/50;
+        }
+        if(camActive && touch.clientX > window.innerWidth/2){
+            let dx = (touch.clientX - camPrevX) * 0.008 * sensitivity;
+            let dy = (touch.clientY - camPrevY) * 0.008 * sensitivity;
+            yawObject.rotation.y -= dx;
+            pitchObject.rotation.x -= dy;
+            pitchObject.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitchObject.rotation.x));
+            camPrevX = touch.clientX;
+            camPrevY = touch.clientY;
+        }
+    }
 });
 
 document.addEventListener('touchend', e=>{
-    isDragging=false;
+    stickActive = false;
+    camActive = false;
+    stick.style.transform = `translate(0px,0px)`;
+    joystick.style.display='none';
+    move.forward = 0;
+    move.right = 0;
 });
 
 // Collision simple avec murs
@@ -193,6 +186,7 @@ animate();
 </script>
 </body>
 </html>
+
 
 
 
