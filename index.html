@@ -6,55 +6,50 @@
 <style>
   body { margin:0; overflow:hidden; touch-action:none; }
   canvas { display:block; }
-
-  /* Joystick */
-  #joystick { position:absolute; width:120px; height:120px; background:rgba(0,0,0,0.3); border-radius:50%; display:none; }
-  #stick { position:absolute; width:60px; height:60px; background:rgba(0,0,0,0.6); border-radius:50%; top:30px; left:30px; touch-action:none; }
-
-  /* Bouton sauter */
-  #jumpBtn { position:absolute; bottom:50px; right:50px; width:80px; height:80px; background:orange; border-radius:50%; font-size:20px; text-align:center; line-height:80px; color:white; }
-
-  /* Slider sensibilité */
+  #joystick { position:absolute; bottom:50px; left:50px; width:120px; height:120px; border-radius:50%; background:rgba(0,0,0,0.3); }
+  #stick { position:absolute; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,0.7); top:30px; left:30px; }
+  #jumpBtn { position:absolute; bottom:50px; right:50px; padding:20px; font-size:20px; background:rgba(255,255,255,0.7); border:none; border-radius:10px; }
   #sensiSlider { position:absolute; top:20px; right:20px; width:150px; }
 </style>
 </head>
 <body>
 <div id="joystick"><div id="stick"></div></div>
-<button id="jumpBtn">Jump</button>
-<input type="range" id="sensiSlider" min="0.1" max="2" value="1" step="0.1">
+<button id="jumpBtn">Sauter</button>
+<input type="range" id="sensiSlider" min="0.1" max="2" step="0.05" value="1">
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 <script>
 let camera, scene, renderer;
 let pitchObject, yawObject;
 let velocity = new THREE.Vector3();
-let move = {forward:0, right:0};
 let prevTime = performance.now();
+let move = { forward:false, backward:false, left:false, right:false };
+let jump = false;
+let canJump = true;
 let sensitivity = 1;
-let canJump = false;
 
-// Init Three.js
-function init() {
+// --- Initialisation Three.js ---
+function init(){
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x2c3e50); // ciel crépuscule
+    scene.background = new THREE.Color(0x222244); // crépuscule
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
     pitchObject = new THREE.Object3D();
     pitchObject.add(camera);
-
     yawObject = new THREE.Object3D();
     yawObject.position.y = 2;
     yawObject.add(pitchObject);
     scene.add(yawObject);
 
-    // Sol vert
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshPhongMaterial({color:0x00aa00}));
+    // Sol
+    const floorMat = new THREE.MeshPhongMaterial({color:0x6e6e61});
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(50,50), floorMat);
     floor.rotation.x = -Math.PI/2;
     scene.add(floor);
 
-    // Murs oranges
-    const wallMat = new THREE.MeshPhongMaterial({color:0xff6600});
+    // Murs
+    const wallMat = new THREE.MeshPhongMaterial({color:0xffffff});
     const walls = [
         new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat),
         new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat),
@@ -77,106 +72,111 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    window.addEventListener('resize', onWindowResize);
-
-    // Slider sensibilité
-    document.getElementById('sensiSlider').addEventListener('input', e => sensitivity = parseFloat(e.target.value));
-
-    // Jump
-    document.getElementById('jumpBtn').addEventListener('touchstart', ()=>{ if(canJump){ velocity.y = 5; canJump=false; } });
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth/window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 }
 
-function onWindowResize(){
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-// Joystick mobile qui apparaît là où on touche
-let stick = document.getElementById('stick');
+// --- Joystick ---
 let joystick = document.getElementById('joystick');
-let stickActive = false;
-let startX=0, startY=0;
+let stick = document.getElementById('stick');
+let joystickPos = {x:0, y:0};
+let joystickActive = false;
 
-document.addEventListener('touchstart', e=>{
-    const touch = e.touches[0];
-    if(touch.clientX < window.innerWidth/2){
-        stickActive = true;
-        startX = touch.clientX;
-        startY = touch.clientY;
-        joystick.style.left = (startX-60) + 'px';
-        joystick.style.top = (startY-60) + 'px';
-        joystick.style.display = 'block';
-    }
-});
-
-document.addEventListener('touchmove', e=>{
-    if(!stickActive) return;
-    const touch = e.touches[0];
-    let dx = touch.clientX - startX;
-    let dy = touch.clientY - startY;
-    dx = Math.max(-50, Math.min(50, dx));
-    dy = Math.max(-50, Math.min(50, dy));
-    stick.style.transform = `translate(${dx}px, ${dy}px)`;
-
-    // Déplacement + rotation caméra
-    move.forward = -dy/50;
-    move.right = dx/50;
-
-    // Caméra tourne selon horizontal stick
-    yawObject.rotation.y -= dx*0.02*sensitivity;
-    pitchObject.rotation.x -= dy*0.02*sensitivity;
-    pitchObject.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitchObject.rotation.x));
-});
-
-document.addEventListener('touchend', e=>{
-    stickActive=false;
-    stick.style.transform='translate(0px,0px)';
-    joystick.style.display='none';
-    move.forward=0;
-    move.right=0;
-});
-
-// Collision simple avec murs
-function collide(pos){
-    const limit = 9;
-    if(pos.x<-limit) pos.x=-limit;
-    if(pos.x>limit) pos.x=limit;
-    if(pos.z<-limit) pos.z=-limit;
-    if(pos.z>limit) pos.z=limit;
+function getTouchPos(e){
+    const rect = joystick.getBoundingClientRect();
+    let touch = e.touches[0];
+    let x = touch.clientX - rect.left - rect.width/2;
+    let y = touch.clientY - rect.top - rect.height/2;
+    let max = rect.width/2;
+    x = Math.max(-max, Math.min(max, x));
+    y = Math.max(-max, Math.min(max, y));
+    return {x, y};
 }
 
-// Animate
+joystick.addEventListener('touchstart', e=>{ joystickActive=true; e.preventDefault(); });
+joystick.addEventListener('touchmove', e=>{
+    if(!joystickActive) return;
+    let pos = getTouchPos(e);
+    stick.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
+    joystickPos.x = pos.x/50; // normalisation
+    joystickPos.y = -pos.y/50;
+});
+joystick.addEventListener('touchend', e=>{ joystickActive=false; stick.style.transform='translate(0px,0px)'; joystickPos.x=0; joystickPos.y=0; });
+
+// --- Glisser la caméra ---
+let dragging = false;
+let lastTouch = null;
+document.addEventListener('touchstart', e=>{
+    if(e.target === joystick) return;
+    dragging=true;
+    lastTouch = {x:e.touches[0].clientX, y:e.touches[0].clientY};
+});
+document.addEventListener('touchmove', e=>{
+    if(!dragging) return;
+    let touch = e.touches[0];
+    let dx = (touch.clientX - lastTouch.x)*0.002*sensitivity;
+    let dy = (touch.clientY - lastTouch.y)*0.002*sensitivity;
+    yawObject.rotation.y -= dx;
+    pitchObject.rotation.x -= dy;
+    pitchObject.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitchObject.rotation.x));
+    lastTouch = {x:touch.clientX, y:touch.clientY};
+});
+document.addEventListener('touchend', e=>{ dragging=false; });
+
+// --- Bouton sauter ---
+document.getElementById('jumpBtn').addEventListener('touchstart', e=>{
+    if(canJump){ jump=true; canJump=false; }
+});
+
+// --- Slider sensibilité ---
+document.getElementById('sensiSlider').addEventListener('input', e=>{
+    sensitivity = parseFloat(e.target.value);
+});
+
+// --- Animation ---
 function animate(){
     requestAnimationFrame(animate);
     const time = performance.now();
     const delta = (time-prevTime)/1000;
 
-    // Déplacement selon joystick
-    const speed = 5;
-    const forward = new THREE.Vector3();
-    forward.setFromMatrixColumn(yawObject.matrix,0);
-    forward.crossVectors(camera.up, forward);
-    yawObject.position.add(forward.multiplyScalar(move.forward*speed*delta));
-    const right = new THREE.Vector3();
-    right.setFromMatrixColumn(yawObject.matrix,0);
-    yawObject.position.add(right.multiplyScalar(move.right*speed*delta));
+    // Mouvement
+    let forward = new THREE.Vector3(0,0,-1).applyQuaternion(yawObject.quaternion); forward.y=0; forward.normalize();
+    let right = new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
+    velocity.set(0,0,0);
+    velocity.add(forward.clone().multiplyScalar(joystickPos.y*5*delta));
+    velocity.add(right.clone().multiplyScalar(joystickPos.x*5*delta));
+
+    // Saut
+    if(jump){ velocity.y = 5; jump=false; }
 
     // Gravité
     velocity.y -= 9.8*delta;
-    yawObject.position.y += velocity.y*delta;
-    if(yawObject.position.y < 2){ yawObject.position.y=2; velocity.y=0; canJump=true; }
 
-    collide(yawObject.position);
+    // Collision simple avec sol
+    yawObject.position.add(velocity);
+    if(yawObject.position.y<2){ yawObject.position.y=2; canJump=true; velocity.y=0; }
+
+    // Collision murs simple AABB
+    const pos = yawObject.position;
+    if(pos.x<-9) pos.x=-9;
+    if(pos.x>9) pos.x=9;
+    if(pos.z<-9) pos.z=-9;
+    if(pos.z>9) pos.z=9;
+
     prevTime=time;
     renderer.render(scene,camera);
 }
 
+// --- Lancer ---
 init();
 animate();
 </script>
 </body>
 </html>
+
 
 
 
