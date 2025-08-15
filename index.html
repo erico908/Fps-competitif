@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Mini Battlefield Mobile/PC</title>
+<title>Mini FPS Mobile/PC</title>
 <style>
 body { margin:0; overflow:hidden; }
 canvas { display:block; }
@@ -15,23 +15,8 @@ canvas { display:block; }
     touch-action:none;
     display:none;
 }
-#joystick {
-    width:100%;
-    height:100%;
-    border-radius:50%;
-    background:rgba(100,100,100,0.3);
-    position:relative;
-}
-#stick {
-    width:60px;
-    height:60px;
-    background:rgba(200,200,200,0.6);
-    border-radius:50%;
-    position:absolute;
-    left:45px;
-    top:45px;
-    touch-action:none;
-}
+#joystick { width:100%; height:100%; border-radius:50%; background:rgba(100,100,100,0.3); position:relative; }
+#stick { width:60px; height:60px; background:rgba(200,200,200,0.6); border-radius:50%; position:absolute; left:45px; top:45px; touch-action:none; }
 </style>
 </head>
 <body>
@@ -43,88 +28,66 @@ canvas { display:block; }
 
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
 
+// Scene basique
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.y = 2;
+camera.position.set(0,2,5);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(50, 100, 50);
+const light = new THREE.DirectionalLight(0xffffff,1);
+light.position.set(50,100,50);
 scene.add(light);
 scene.add(new THREE.AmbientLight(0x404040));
 
-const floorGeometry = new THREE.PlaneGeometry(500, 500, 50, 50);
-const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
-const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+// Sol
+const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(500,500),
+    new THREE.MeshStandardMaterial({color:0x228B22})
+);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-// Obstacles
-for(let i=0;i<20;i++){
-    const boxGeo = new THREE.BoxGeometry(5+Math.random()*10, 2+Math.random()*5, 5+Math.random()*10);
-    const boxMat = new THREE.MeshStandardMaterial({color:0x555555});
-    const box = new THREE.Mesh(boxGeo, boxMat);
-    box.position.set(Math.random()*400-200, boxGeo.parameters.height/2, Math.random()*400-200);
-    scene.add(box);
-}
-
-// Arme placeholder
-const gunGeometry = new THREE.BoxGeometry(0.3, 0.2, 1);
-const gunMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
-const gun = new THREE.Mesh(gunGeometry, gunMaterial);
-gun.position.set(0.5, -0.5, -1);
-camera.add(gun);
-scene.add(camera);
-
 // Cibles
-const targets = [];
-const targetGeometry = new THREE.BoxGeometry(1, 1, 1);
-const targetMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-function spawnTarget() {
-    const target = new THREE.Mesh(targetGeometry, targetMaterial);
-    target.position.set(Math.random()*400-200, 1+Math.random()*5, Math.random()*400-200);
-    scene.add(target);
-    targets.push(target);
+const targets=[];
+const targetMaterial = new THREE.MeshStandardMaterial({color:0xff0000});
+function spawnTarget(){
+    const t = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), targetMaterial);
+    t.position.set(Math.random()*50-25,1,Math.random()*50-25);
+    scene.add(t);
+    targets.push(t);
 }
 for(let i=0;i<15;i++) spawnTarget();
 
-// Détection Mobile
+// Détection mobile
 const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-let controls, move={forward:false, backward:false, left:false, right:false}, velocity=new THREE.Vector3();
+let move = {forward:false,backward:false,left:false,right:false}, velocity = new THREE.Vector3();
+
 if(isMobile){
     document.getElementById('joystickContainer').style.display='block';
-    // Joystick simple
     const stick = document.getElementById('stick');
     let startX, startY, dx=0, dz=0;
-    stick.addEventListener('touchstart', e => {
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-    });
-    stick.addEventListener('touchmove', e => {
+    stick.addEventListener('touchstart', e=>{ startX=e.touches[0].clientX; startY=e.touches[0].clientY; });
+    stick.addEventListener('touchmove', e=>{
         dx = (e.touches[0].clientX - startX)/50;
         dz = (e.touches[0].clientY - startY)/50;
-        dx = Math.max(-1, Math.min(1, dx));
-        dz = Math.max(-1, Math.min(1, dz));
+        dx = Math.max(-1,Math.min(1,dx));
+        dz = Math.max(-1,Math.min(1,dz));
     });
-    stick.addEventListener('touchend', e => { dx=0; dz=0; });
+    stick.addEventListener('touchend', e=>{ dx=0; dz=0; });
 } else {
-    // PC
-    controls = new PointerLockControls(camera, document.body);
-    document.addEventListener('click', ()=>controls.lock());
-    document.addEventListener('keydown', e => {
+    document.addEventListener('keydown', e=>{
         if(e.code==='KeyZ') move.forward=true;
         if(e.code==='KeyS') move.backward=true;
         if(e.code==='KeyQ') move.left=true;
         if(e.code==='KeyD') move.right=true;
     });
-    document.addEventListener('keyup', e => {
+    document.addEventListener('keyup', e=>{
         if(e.code==='KeyZ') move.forward=false;
         if(e.code==='KeyS') move.backward=false;
         if(e.code==='KeyQ') move.left=false;
@@ -135,52 +98,49 @@ if(isMobile){
 // Tir
 const bullets=[];
 function shoot(){
-    const bulletGeometry = new THREE.SphereGeometry(0.05,8,8);
-    const bulletMaterial = new THREE.MeshBasicMaterial({ color:0xffff00 });
-    const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
-    bullet.position.copy(camera.position);
-    bullet.direction = new THREE.Vector3();
-    camera.getWorldDirection(bullet.direction);
-    bullets.push(bullet);
-    scene.add(bullet);
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), new THREE.MeshBasicMaterial({color:0xffff00}));
+    b.position.copy(camera.position);
+    b.direction = new THREE.Vector3();
+    camera.getWorldDirection(b.direction);
+    bullets.push(b);
+    scene.add(b);
 }
 document.addEventListener('mousedown', shoot);
-if(isMobile){
-    document.body.addEventListener('touchstart', e=>shoot());
-}
+if(isMobile) document.body.addEventListener('touchstart', shoot);
 
 // Animation
 const clock = new THREE.Clock();
 function animate(){
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
+
     if(isMobile){
-        velocity.set(dx*50*delta,0,dz*50*delta);
+        velocity.set(dx*10*delta,0,dz*10*delta);
         camera.translateX(velocity.x);
         camera.translateZ(velocity.z);
     } else {
         velocity.set(0,0,0);
-        if(move.forward) velocity.z -= 50*delta;
-        if(move.backward) velocity.z += 50*delta;
-        if(move.left) velocity.x -= 50*delta;
-        if(move.right) velocity.x += 50*delta;
-        controls.moveRight(velocity.x);
-        controls.moveForward(velocity.z);
+        if(move.forward) velocity.z -= 10*delta;
+        if(move.backward) velocity.z += 10*delta;
+        if(move.left) velocity.x -= 10*delta;
+        if(move.right) velocity.x += 10*delta;
+        camera.translateX(velocity.x);
+        camera.translateZ(velocity.z);
     }
 
-    bullets.forEach((b,index)=>{
-        b.position.addScaledVector(b.direction,2);
-        targets.forEach((t,tIndex)=>{
+    bullets.forEach((b,i)=>{
+        b.position.addScaledVector(b.direction,10*delta);
+        targets.forEach((t,ti)=>{
             if(b.position.distanceTo(t.position)<1){
                 scene.remove(t);
-                targets.splice(tIndex,1);
+                targets.splice(ti,1);
                 scene.remove(b);
-                bullets.splice(index,1);
+                bullets.splice(i,1);
             }
         });
     });
 
-    renderer.render(scene, camera);
+    renderer.render(scene,camera);
 }
 animate();
 
@@ -193,6 +153,7 @@ window.addEventListener('resize', ()=>{
 </script>
 </body>
 </html>
+
 
 
 
