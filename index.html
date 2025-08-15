@@ -2,184 +2,120 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>FPS Mobile Semi-Réaliste AK-47</title>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Horror Night VR - Tir AK-47</title>
 <style>
-  body { margin:0; overflow:hidden; touch-action:none; background:#222; }
-  canvas { display:block; width:100vw; height:100vh; }
-  #stick { position:absolute; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,0.45); display:none; z-index:10; }
-  #jumpBtn { position:absolute; bottom:18px; right:18px; width:80px; height:80px; border-radius:50%; background:rgba(255,255,255,0.35); text-align:center; font-size:24px; line-height:80px; color:#fff; z-index:10; user-select:none; }
-  #shootBtn { position:absolute; bottom:18px; right:110px; width:80px; height:80px; border-radius:50%; background:rgba(255,0,0,0.35); text-align:center; font-size:24px; line-height:80px; color:#fff; z-index:10; user-select:none; }
-  #reticle { position:absolute; pointer-events:none; z-index:20; left:50%; top:50%; width:16px; height:16px; margin-left:-8px; margin-top:-8px; }
-  #reticle::before,#reticle::after{ content:""; position:absolute; background:rgba(255,255,255,0.9); }
-  #reticle::before{ left:7px; top:0; width:2px; height:16px; }
-  #reticle::after { left:0; top:7px; width:16px; height:2px; }
-  #score { position:absolute; top:10px; right:10px; color:#fff; font-size:24px; z-index:10; }
+  body { margin: 0; overflow: hidden; background-color: #000; }
+  #score { position: absolute; top: 10px; left: 10px; color: white; font-size: 24px; z-index: 10; }
+  #shootBtn { position: absolute; bottom: 20px; right: 20px; width: 80px; height: 80px; border-radius: 50%; background: red; border: none; z-index: 10; }
 </style>
 </head>
 <body>
-<div id="stick"></div>
-<div id="jumpBtn">↑</div>
-<div id="shootBtn">●</div>
-<div id="reticle"></div>
 <div id="score">Score: 0</div>
+<button id="shootBtn"></button>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 <script>
-
-// ===== Scene et caméra =====
 let scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87cefa);
-
-let camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
-let pitch = new THREE.Object3D();
-pitch.add(camera);
-let yaw = new THREE.Object3D();
-yaw.position.set(0,1.8,0);
-yaw.add(pitch);
-scene.add(yaw);
-
-// Sol et murs
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(40,40), new THREE.MeshPhongMaterial({color:0x32CD32}));
-floor.rotation.x = -Math.PI/2; scene.add(floor);
-const wallMat = new THREE.MeshPhongMaterial({color:0xFF6347});
-function addWall(w,h,d,x,z){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMat); m.position.set(x,h/2,z); scene.add(m);}
-addWall(20,4,1, 0,-10); addWall(20,4,1, 0,10); addWall(1,4,20,-10,0); addWall(1,4,20,10,0);
-
-scene.add(new THREE.DirectionalLight(0xffffff,1).position.set(5,10,7));
-scene.add(new THREE.AmbientLight(0x404040));
-
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(innerWidth,innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+let renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// ===== Joystick =====
-let stick = document.getElementById("stick");
-let joyId=null, joyStartX=0, joyStartY=0, joyDX=0, joyDY=0;
-let MOVE_SPEED=5;
-window.addEventListener("pointerdown", e => {
-  if(e.clientX<innerWidth/2){
-    joyId=e.pointerId; joyStartX=e.clientX; joyStartY=e.clientY;
-    stick.style.left=(joyStartX-30)+"px"; stick.style.top=(joyStartY-30)+"px"; stick.style.display="block";
-  }
-});
-window.addEventListener("pointermove", e => {
-  if(e.pointerId===joyId){
-    let dx=e.clientX-joyStartX, dy=e.clientY-joyStartY;
-    const max=50, dist=Math.hypot(dx,dy); if(dist>max){ const s=max/dist; dx*=s; dy*=s; }
-    stick.style.left=(joyStartX+dx-30)+"px"; stick.style.top=(joyStartY+dy-30)+"px";
-    joyDX = dx/max; joyDY = -dy/max;
-  }
-});
-window.addEventListener("pointerup", e => { if(e.pointerId===joyId){ joyId=null; stick.style.display="none"; joyDX=0; joyDY=0; } });
+camera.position.set(0,1.6,0);
 
-// ===== Caméra glisser côté droit =====
-let lookId=null,lastX=0,lastY=0, SENS=0.003;
-window.addEventListener("pointerdown", e => { if(e.clientX>innerWidth/2 && lookId==null){ lookId=e.pointerId; lastX=e.clientX; lastY=e.clientY; } });
-window.addEventListener("pointermove", e => {
-  if(e.pointerId===lookId){
-    let dx=e.clientX-lastX, dy=e.clientY-lastY;
-    lastX=e.clientX; lastY=e.clientY;
-    yaw.rotation.y -= dx*SENS;
-    pitch.rotation.x -= dy*SENS;
-    const lim=Math.PI/2; pitch.rotation.x=Math.max(-lim,Math.min(lim,pitch.rotation.x));
-  }
-});
-window.addEventListener("pointerup", e => { if(e.pointerId===lookId) lookId=null; });
+let light = new THREE.HemisphereLight(0xffffff,0x444444,1);
+scene.add(light);
 
-// ===== Saut =====
-let velY=0, onGround=true;
-document.getElementById("jumpBtn").addEventListener("pointerdown",()=>{ if(onGround){ velY=5; onGround=false; } });
+// ===== Sol simple =====
+let ground = new THREE.Mesh(new THREE.PlaneGeometry(100,100), new THREE.MeshPhongMaterial({color:0x222222}));
+ground.rotation.x = -Math.PI/2;
+scene.add(ground);
 
-// ===== AK-47 et mains =====
+// ===== Mains et AK-47 =====
 const gunGroup = new THREE.Group();
 camera.add(gunGroup);
-gunGroup.position.set(0,-0.25,-0.5);
+gunGroup.position.set(0,-0.2,-0.3);
 
 // Mains
 const handMat = new THREE.MeshPhongMaterial({color:0xffd1a4});
-const leftHand = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.5,0.25), handMat);
-const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.5,0.25), handMat);
-leftHand.position.set(-0.2,-0.25,-0.2);
-rightHand.position.set(0.2,-0.25,-0.2);
+const leftHand = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.5,0.2), handMat);
+const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.5,0.2), handMat);
+leftHand.position.set(-0.25,-0.2,-0.15); leftHand.rotation.x = -0.2;
+rightHand.position.set(0.25,-0.2,-0.15); rightHand.rotation.x = -0.1;
 gunGroup.add(leftHand,rightHand);
 
-// AK-47 simplifiée mais plus réaliste
+// AK-47
 const gunMat = new THREE.MeshPhongMaterial({color:0x222222});
-const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,0.6), gunMat); barrel.position.set(0,0,0.4);
-const stock = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,0.2), gunMat); stock.position.set(0,0,-0.3);
-const magazine = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.15,0.1), gunMat); magazine.position.set(0,-0.1,0);
-gunGroup.add(barrel,stock,magazine);
+const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.07,0.6), gunMat); barrel.position.set(0,0,0.35);
+const stock = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.07,0.25), gunMat); stock.position.set(0,0,-0.25);
+const magazine = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.15,0.12), gunMat); magazine.position.set(0,-0.1,0);
+const handguard = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,0.25), gunMat); handguard.position.set(0,0,0.1);
+gunGroup.add(barrel,stock,magazine,handguard);
 
-// ===== Effet feu/fumée =====
+// Effet feu
 const fireMat = new THREE.MeshBasicMaterial({color:0xffaa00});
 const fire = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), fireMat);
-fire.position.set(0,0,0.7); fire.visible=false; gunGroup.add(fire);
+fire.visible=false;
+gunGroup.add(fire);
 
 // ===== Cibles =====
-const targets = [];
+let targets = [];
 for(let i=0;i<5;i++){
-  const t = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshPhongMaterial({color:0xff0000}));
-  t.position.set(Math.random()*16-8,0.5,Math.random()*16-8);
-  scene.add(t); targets.push(t);
+  let t = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.5), new THREE.MeshPhongMaterial({color:0xff0000}));
+  t.position.set(Math.random()*10-5,0.25,-Math.random()*10-5);
+  scene.add(t);
+  targets.push(t);
 }
 
-// ===== Score =====
-let score=0;
+let score = 0;
 
 // ===== Tir =====
 function shoot(){
-  // Légère visée assistée : attire un peu le tir vers la cible proche si centrée
+  fire.position.set(0,0,0.7);
+  fire.visible = true;
+
+  const origin = new THREE.Vector3(); 
+  origin.setFromMatrixPosition(camera.matrixWorld);
+  const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).normalize();
+
   let closest=null, minDist=Infinity;
-  const origin = new THREE.Vector3(); origin.setFromMatrixPosition(camera.matrixWorld);
-  const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-  for(let t of targets){ if(!t.visible) continue;
-    const vec = new THREE.Vector3().subVectors(t.position, origin);
-    const angle = dir.angleTo(vec);
-    if(angle<0.15 && angle<minDist){ closest=t; minDist=angle; }
+  for(let t of targets){
+    if(!t.visible) continue;
+    const toTarget = new THREE.Vector3().subVectors(t.position, origin);
+    const distanceAlongDir = toTarget.dot(dir);
+    if(distanceAlongDir>0){
+      const perpendicularDist = toTarget.clone().sub(dir.clone().multiplyScalar(distanceAlongDir)).length();
+      if(perpendicularDist<0.5 && distanceAlongDir<minDist){ closest=t; minDist=distanceAlongDir; }
+    }
   }
-  let shootDir = dir.clone();
-  if(closest) shootDir = new THREE.Vector3().subVectors(closest.position, origin).normalize();
+  if(closest){
+    closest.visible=false;
+    score++;
+    document.getElementById("score").innerText="Score: "+score;
+  }
 
-  const ray = new THREE.Raycaster(origin, shootDir);
-  const intersects = ray.intersectObjects(targets);
-  if(intersects.length>0){
-    intersects[0].object.visible=false;
-    score++; document.getElementById("score").innerText="Score: "+score;
-  }
-  fire.visible=true;
-  setTimeout(()=>{fire.visible=false;},50);
+  setTimeout(()=>{ fire.visible=false; },100);
 }
-document.getElementById("shootBtn").addEventListener("pointerdown", shoot);
 
-// ===== Loop =====
-let clock = new THREE.Clock();
-function loop(){
-  requestAnimationFrame(loop);
-  const dt = clock.getDelta();
+document.getElementById("shootBtn").addEventListener("pointerdown",shoot);
 
-  // Déplacement
-  const forward = new THREE.Vector3(0,0,-1).applyQuaternion(yaw.quaternion);
-  const right = new THREE.Vector3(1,0,0).applyQuaternion(yaw.quaternion);
-  yaw.position.add(forward.clone().multiplyScalar(joyDY*MOVE_SPEED*dt));
-  yaw.position.add(right.clone().multiplyScalar(joyDX*MOVE_SPEED*dt));
-
-  // Limites
-  yaw.position.x = Math.max(-9.5, Math.min(9.5, yaw.position.x));
-  yaw.position.z = Math.max(-9.5, Math.min(9.5, yaw.position.z));
-
-  // Gravité
-  velY -= 9.81*dt; yaw.position.y += velY*dt;
-  if(yaw.position.y<1.8){ yaw.position.y=1.8; velY=0; onGround=true; }
-
+// ===== Boucle animation =====
+function animate(){
+  requestAnimationFrame(animate);
   renderer.render(scene,camera);
 }
-loop();
+animate();
 
+// ===== Redimensionnement =====
+window.addEventListener('resize',()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
+
 
 
 
