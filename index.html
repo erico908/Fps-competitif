@@ -49,13 +49,13 @@ function init() {
     yawObject.add(pitchObject);
     scene.add(yawObject);
 
-    // Sol
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshPhongMaterial({color:0x8a8f8a}));
+    // Sol vert
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshPhongMaterial({color:0x00aa00}));
     floor.rotation.x = -Math.PI/2;
     scene.add(floor);
 
-    // Murs
-    const wallMat = new THREE.MeshPhongMaterial({color:0xffffff});
+    // Murs oranges
+    const wallMat = new THREE.MeshPhongMaterial({color:0xff6600});
     const walls = [
         new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat),
         new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat),
@@ -112,13 +112,13 @@ stick.addEventListener('touchmove', e => {
     let dx = touch.clientX - startX;
     let dy = touch.clientY - startY;
 
-    dx = Math.max(-40, Math.min(40, dx));
-    dy = Math.max(-40, Math.min(40, dy));
+    dx = Math.max(-50, Math.min(50, dx));
+    dy = Math.max(-50, Math.min(50, dy));
 
     stick.style.transform = `translate(${dx}px, ${dy}px)`;
 
-    move.forward = -dy/40;
-    move.right = dx/40;
+    move.forward = -dy/50;
+    move.right = dx/50;
 
     e.preventDefault();
 });
@@ -130,7 +130,7 @@ stick.addEventListener('touchend', e => {
     move.right = 0;
 });
 
-// Caméra glissement tactile
+// Caméra glissement tactile fluide
 let isDragging=false;
 let prevTouchX=0, prevTouchY=0;
 document.addEventListener('touchstart', e=>{
@@ -143,8 +143,8 @@ document.addEventListener('touchstart', e=>{
 document.addEventListener('touchmove', e=>{
     if(!isDragging) return;
     const touch = e.touches[0];
-    const dx = (touch.clientX - prevTouchX) * 0.005 * sensitivity;
-    const dy = (touch.clientY - prevTouchY) * 0.005 * sensitivity;
+    const dx = (touch.clientX - prevTouchX) * 0.008 * sensitivity;
+    const dy = (touch.clientY - prevTouchY) * 0.008 * sensitivity;
 
     yawObject.rotation.y -= dx;
     pitchObject.rotation.x -= dy;
@@ -160,7 +160,7 @@ document.addEventListener('touchend', e=>{
 
 // Collision simple avec murs
 function collide(pos){
-    const limit = 9; // limite des murs
+    const limit = 9; 
     if(pos.x<-limit) pos.x=-limit;
     if(pos.x>limit) pos.x=limit;
     if(pos.z<-limit) pos.z=-limit;
@@ -181,7 +181,6 @@ function animate(){
     yawObject.position.y += velocity.y*delta;
     yawObject.position.z += velocity.z*delta;
 
-    // Collision sol et murs
     if(yawObject.position.y < 2){ yawObject.position.y=2; velocity.y=0; canJump=true; }
     collide(yawObject.position);
 
@@ -194,6 +193,7 @@ animate();
 </script>
 </body>
 </html>
+
 
 
 
