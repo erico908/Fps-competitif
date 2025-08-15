@@ -1,94 +1,184 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>FPS Mobile Simple</title>
+<meta charset="UTF-8" />
+<title>FPS simple avec mouvement et rotation caméra</title>
 <style>
-body { margin:0; overflow:hidden; touch-action:none; }
-canvas { display:block; }
-#joy { position:absolute; bottom:20px; left:20px; width:100px; height:100px; border-radius:50%; background:rgba(0,0,0,0.3); }
-#knob { position:absolute; width:50px; height:50px; border-radius:50%; background:rgba(0,0,0,0.6); top:25px; left:25px; }
+  body { margin: 0; overflow: hidden; background: #87ceeb; }
+  #info {
+    position: absolute; top: 10px; left: 10px; 
+    color: white; background: rgba(0,0,0,0.5); 
+    padding: 8px; font-family: Arial, sans-serif;
+    z-index: 10;
+  }
 </style>
 </head>
 <body>
-<div id="joy"><div id="knob"></div></div>
+<div id="info">Clique dans la page, puis bouge la souris pour tourner. Utilise Z/S/Q/D pour te déplacer.</div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 <script>
-// --- Scene ---
-let scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
-let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-let renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+let camera, scene, renderer;
+let pitchObject, yawObject;
+let velocity = new THREE.Vector3();
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+let canJump = false;
+let prevTime = performance.now();
+let pointerLocked = false;
 
-// --- Contrôleur FPS simple ---
-let pitchObject = new THREE.Object3D();
-pitchObject.add(camera);
-let yawObject = new THREE.Object3D();
-yawObject.position.y = 2;
-yawObject.add(pitchObject);
-scene.add(yawObject);
-
-// Sol simple
-let floor = new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshBasicMaterial({color:0x228B22}));
-floor.rotation.x = -Math.PI/2;
-scene.add(floor);
-
-// --- Joystick ---
-let joy = document.getElementById('joy');
-let knob = document.getElementById('knob');
-let joyCenter = {x:0,y:0};
-function computeCenter(){const r=joy.getBoundingClientRect(); joyCenter.x=r.left+r.width/2; joyCenter.y=r.top+r.height/2;}
-computeCenter();
-window.addEventListener('resize',computeCenter);
-
-let joyId = null;
-let moveX=0, moveY=0;
-
-function setKnob(x,y){knob.style.left = (x-joy.offsetLeft-25)+'px'; knob.style.top = (y-joy.offsetTop-25)+'px';}
-function resetKnob(){setKnob(joyCenter.x, joyCenter.y); moveX=0; moveY=0;}
-function updateJoy(x,y){
-    let dx = x-joyCenter.x, dy = y-joyCenter.y;
-    let dist = Math.hypot(dx,dy);
-    if(dist>50){ const s=50/dist; dx*=s; dy*=s; }
-    setKnob(joyCenter.x+dx, joyCenter.y+dy);
-    moveX = dx/50; moveY = -dy/50;
-}
-
-joy.addEventListener('pointerdown', e=>{ if(joyId===null){ joyId=e.pointerId; e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); updateJoy(e.clientX,e.clientY); }});
-window.addEventListener('pointermove', e=>{ if(e.pointerId===joyId) updateJoy(e.clientX,e.clientY); });
-window.addEventListener('pointerup', e=>{ if(e.pointerId===joyId){ joyId=null; resetKnob(); }});
-
-// --- Caméra tactile ---
-let lastTouch=null;
-document.addEventListener('touchstart', e=>{ if(e.target===joy) return; lastTouch=e.touches[0]; });
-document.addEventListener('touchmove', e=>{
-    if(!lastTouch) return;
-    const t = e.touches[0];
-    const dx = t.clientX - lastTouch.clientX;
-    const dy = t.clientY - lastTouch.clientY;
-    yawObject.rotation.y -= dx*0.002;
-    pitchObject.rotation.x -= dy*0.002;
-    const PI2=Math.PI/2; pitchObject.rotation.x=Math.max(-PI2, Math.min(PI2, pitchObject.rotation.x));
-    lastTouch=t;
-});
-document.addEventListener('touchend', e=>{ lastTouch=null; });
-
-// --- Animation ---
-function animate(){
-    requestAnimationFrame(animate);
-    // Mouvement joystick
-    const forward = new THREE.Vector3(0,0,-1).applyQuaternion(yawObject.quaternion); forward.y=0; forward.normalize();
-    const right = new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
-    let dir = forward.clone().multiplyScalar(moveY*0.1).add(right.clone().multiplyScalar(moveX*0.1));
-    yawObject.position.add(dir);
-    renderer.render(scene,camera);
-}
+init();
 animate();
+
+function init() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87ceeb); // ciel bleu
+
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+
+  pitchObject = new THREE.Object3D();
+  pitchObject.add(camera);
+
+  yawObject = new THREE.Object3D();
+  yawObject.position.y = 2; // hauteur yeux
+  yawObject.add(pitchObject);
+
+  scene.add(yawObject);
+
+  // Sol vert
+  const floorGeometry = new THREE.PlaneGeometry(20, 20);
+  const floorMaterial = new THREE.MeshPhongMaterial({color: 0x228B22});
+  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // Murs colorés (4 murs)
+  const wallGeometry = new THREE.BoxGeometry(20, 4, 0.5);
+  const wallMaterial1 = new THREE.MeshPhongMaterial({color: 0x8B4513});
+  const wallMaterial2 = new THREE.MeshPhongMaterial({color: 0xA0522D});
+  const backWall = new THREE.Mesh(wallGeometry, wallMaterial1);
+  backWall.position.set(0, 2, -10);
+  scene.add(backWall);
+
+  const frontWall = new THREE.Mesh(wallGeometry, wallMaterial2);
+  frontWall.position.set(0, 2, 10);
+  scene.add(frontWall);
+
+  const sideWallGeometry = new THREE.BoxGeometry(0.5, 4, 20);
+  const leftWall = new THREE.Mesh(sideWallGeometry, wallMaterial1);
+  leftWall.position.set(-10, 2, 0);
+  scene.add(leftWall);
+
+  const rightWall = new THREE.Mesh(sideWallGeometry, wallMaterial2);
+  rightWall.position.set(10, 2, 0);
+  scene.add(rightWall);
+
+  // Lumière
+  const light = new THREE.DirectionalLight(0xffffff, 1);
+  light.position.set(5, 10, 7);
+  scene.add(light);
+
+  const ambientLight = new THREE.AmbientLight(0x404040);
+  scene.add(ambientLight);
+
+  renderer = new THREE.WebGLRenderer({antialias: true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  // Gestion pointer lock (capture souris)
+  document.body.addEventListener('click', () => {
+    if (!pointerLocked) {
+      document.body.requestPointerLock();
+    }
+  });
+
+  document.addEventListener('pointerlockchange', () => {
+    pointerLocked = (document.pointerLockElement === document.body);
+  });
+
+  // Rotation caméra
+  document.addEventListener('mousemove', (event) => {
+    if (!pointerLocked) return;
+
+    const movementX = event.movementX || 0;
+    const movementY = event.movementY || 0;
+
+    yawObject.rotation.y -= movementX * 0.002;
+    pitchObject.rotation.x -= movementY * 0.002;
+
+    const PI_2 = Math.PI / 2;
+    pitchObject.rotation.x = Math.max(-PI_2, Math.min(PI_2, pitchObject.rotation.x));
+  });
+
+  // Gestion clavier
+  document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keyup', onKeyUp);
+
+  window.addEventListener('resize', onWindowResize);
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function onKeyDown(event) {
+  switch(event.code) {
+    case 'KeyZ': moveForward = true; break;
+    case 'KeyS': moveBackward = true; break;
+    case 'KeyQ': moveLeft = true; break;
+    case 'KeyD': moveRight = true; break;
+    case 'Space': 
+      if(canJump === true) {
+        velocity.y += 10;
+        canJump = false;
+      }
+      break;
+  }
+}
+
+function onKeyUp(event) {
+  switch(event.code) {
+    case 'KeyZ': moveForward = false; break;
+    case 'KeyS': moveBackward = false; break;
+    case 'KeyQ': moveLeft = false; break;
+    case 'KeyD': moveRight = false; break;
+  }
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const time = performance.now();
+  const delta = (time - prevTime) / 1000;
+
+  velocity.x -= velocity.x * 10.0 * delta;
+  velocity.z -= velocity.z * 10.0 * delta;
+  velocity.y -= 9.8 * 5.0 * delta; // gravité
+
+  if(moveForward) velocity.z -= 50.0 * delta;
+  if(moveBackward) velocity.z += 50.0 * delta;
+  if(moveLeft) velocity.x -= 50.0 * delta;
+  if(moveRight) velocity.x += 50.0 * delta;
+
+  yawObject.translateX(velocity.x * delta);
+  yawObject.translateY(velocity.y * delta);
+  yawObject.translateZ(velocity.z * delta);
+
+  if(yawObject.position.y < 2) {
+    velocity.y = 0;
+    yawObject.position.y = 2;
+    canJump = true;
+  }
+
+  prevTime = time;
+
+  renderer.render(scene, camera);
+}
 </script>
 </body>
 </html>
+
 
 
 
