@@ -1,165 +1,200 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
-<title>FPS Mobile (Joystick Dynamique + Glisser Caméra)</title>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta charset="UTF-8">
+<title>FPS Mobile</title>
 <style>
-  body { margin:0; overflow:hidden; touch-action:none; background:#000; }
-  canvas { display:block; width:100vw; height:100vh; }
-  #stick { position:absolute; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,0.45); display:none; z-index:10; }
-  #jumpBtn {
-    position:absolute; bottom:18px; right:18px;
-    width:80px; height:80px; border-radius:50%;
-    background:rgba(255,255,255,0.35); text-align:center; font-size:24px;
-    line-height:80px; color:#fff; z-index:10; user-select:none;
-  }
-  #reticle {
-    position:absolute; pointer-events:none; z-index:20;
-    left:50%; top:50%; width:16px; height:16px; margin-left:-8px; margin-top:-8px;
-  }
-  #reticle::before,#reticle::after{
-    content:""; position:absolute; background:rgba(255,255,255,0.9);
-  }
-  #reticle::before{ left:7px; top:0;   width:2px; height:16px; }
-  #reticle::after { left:0;   top:7px; width:16px; height:2px; }
+  body { margin:0; overflow:hidden; touch-action:none; }
+  canvas { display:block; }
+
+  /* Joystick */
+  #joystick { position:absolute; bottom:50px; left:50px; width:120px; height:120px; background:rgba(0,0,0,0.3); border-radius:50%; }
+  #stick { position:absolute; width:60px; height:60px; background:rgba(0,0,0,0.6); border-radius:50%; top:30px; left:30px; touch-action:none; }
+
+  /* Bouton sauter */
+  #jumpBtn { position:absolute; bottom:50px; right:50px; width:80px; height:80px; background:orange; border-radius:50%; font-size:20px; text-align:center; line-height:80px; color:white; }
+
+  /* Slider sensibilité */
+  #sensiSlider { position:absolute; top:20px; right:20px; width:150px; }
 </style>
 </head>
 <body>
-<div id="stick"></div>
-<div id="jumpBtn">↑</div>
-<div id="reticle"></div>
+<div id="joystick"><div id="stick"></div></div>
+<button id="jumpBtn">Jump</button>
+<input type="range" id="sensiSlider" min="0.1" max="2" value="1" step="0.1">
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
+
 <script>
-// ---- Base Three.js -----
-let scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+let camera, scene, renderer;
+let pitchObject, yawObject;
+let velocity = new THREE.Vector3();
+let move = {forward:0, right:0};
+let prevTime = performance.now();
+let sensitivity = 1;
+let canJump = false;
 
-let camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+// Init
+function init() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x2c3e50); // ciel crépuscule
 
-let pitch = new THREE.Object3D();
-pitch.add(camera);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
-let yaw = new THREE.Object3D();
-yaw.position.set(0,1.8,0);
-yaw.add(pitch);
-scene.add(yaw);
+    pitchObject = new THREE.Object3D();
+    pitchObject.add(camera);
 
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(40,40), new THREE.MeshPhongMaterial({color:0x228B22}));
-floor.rotation.x = -Math.PI/2; scene.add(floor);
+    yawObject = new THREE.Object3D();
+    yawObject.position.y = 2;
+    yawObject.add(pitchObject);
+    scene.add(yawObject);
 
-const wallMat = new THREE.MeshPhongMaterial({color:0x8B4513});
-function addWall(w,h,d,x,z){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),wallMat);m.position.set(x,h/2,z);scene.add(m);}
-addWall(20,4,1, 0,-10); // north
-addWall(20,4,1, 0,10);  // south
-addWall(1,4,20,-10,0);  // west
-addWall(1,4,20, 10,0);  // east
+    // Sol
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshPhongMaterial({color:0x8a8f8a}));
+    floor.rotation.x = -Math.PI/2;
+    scene.add(floor);
 
-scene.add(new THREE.DirectionalLight(0xffffff,1).position.set(5,10,7));
-scene.add(new THREE.AmbientLight(0x404040));
+    // Murs
+    const wallMat = new THREE.MeshPhongMaterial({color:0xffffff});
+    const walls = [
+        new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat),
+        new THREE.Mesh(new THREE.BoxGeometry(1,5,20), wallMat),
+        new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat),
+        new THREE.Mesh(new THREE.BoxGeometry(20,5,1), wallMat)
+    ];
+    walls[0].position.set(-10,2.5,0);
+    walls[1].position.set(10,2.5,0);
+    walls[2].position.set(0,2.5,-10);
+    walls[3].position.set(0,2.5,10);
+    walls.forEach(w=>scene.add(w));
 
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(innerWidth,innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
-document.body.appendChild(renderer.domElement);
+    // Lumière
+    const light = new THREE.DirectionalLight(0xffffff,1);
+    light.position.set(5,10,7);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0x404040));
 
-// ---- Joystick dynamique ----
-let stick = document.getElementById("stick");
-let joyId = null, joyStartX=0, joyStartY=0, joyDX=0, joyDY=0;
-let MOVE_SPEED = 5;
+    renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-window.addEventListener("pointerdown",e=>{
-  // coté gauche → joystick / coté droit → look
-  if(e.clientX < innerWidth/2){
-    joyId = e.pointerId;
-    joyStartX  = e.clientX;
-    joyStartY  = e.clientY;
-    stick.style.left = (joyStartX - 30)+"px";
-    stick.style.top  = (joyStartY - 30)+"px";
-    stick.style.display = "block";
-  }
-});
+    window.addEventListener('resize', onWindowResize);
 
-window.addEventListener("pointermove",e=>{
-  if(e.pointerId === joyId){
-    let dx = e.clientX - joyStartX;
-    let dy = e.clientY - joyStartY;
-    // clamp
-    const max = 50;
-    const dist = Math.hypot(dx,dy);
-    if(dist>max){ const s=max/dist; dx*=s; dy*=s; }
-    stick.style.left = (joyStartX + dx - 30)+"px";
-    stick.style.top  = (joyStartY + dy - 30)+"px";
-    joyDX = dx/max;
-    joyDY = -dy/max;
-  }
-});
+    // Slider sensibilité
+    document.getElementById('sensiSlider').addEventListener('input', e => sensitivity = parseFloat(e.target.value));
 
-window.addEventListener("pointerup",e=>{
-  if(e.pointerId === joyId){
-    joyId=null;
-    stick.style.display="none";
-    joyDX=0; joyDY=0;
-  }
-});
-
-// ---- Caméra - glisser coté droit ----
-let lookId = null, lastX=0,lastY=0;
-let SENS = 0.003;
-
-window.addEventListener("pointerdown",e=>{
-  if(e.clientX > innerWidth/2 && lookId==null){
-    lookId=e.pointerId; lastX=e.clientX; lastY=e.clientY;
-  }
-});
-window.addEventListener("pointermove",e=>{
-  if(e.pointerId === lookId){
-    let dx=e.clientX-lastX, dy=e.clientY-lastY;
-    lastX=e.clientX; lastY=e.clientY;
-    yaw.rotation.y -= dx*SENS;
-    pitch.rotation.x -= dy*SENS;
-    const lim=Math.PI/2; pitch.rotation.x=Math.max(-lim,Math.min(lim,pitch.rotation.x));
-  }
-});
-window.addEventListener("pointerup",e=>{
-  if(e.pointerId===lookId) lookId=null;
-});
-
-// ---- Jump ----
-let velY = 0, onGround = true;
-document.getElementById("jumpBtn").addEventListener("pointerdown",()=>{
-  if(onGround){ velY = 5; onGround=false; }
-});
-
-// ---- Loop ----
-let prev=performance.now();
-function loop(){
-  requestAnimationFrame(loop);
-  let now=performance.now(), dt=(now-prev)/1000; prev=now;
-
-  // déplacement
-  let fwd = new THREE.Vector3(0,0,-1).applyQuaternion(yaw.quaternion); fwd.y=0; fwd.normalize();
-  let right = new THREE.Vector3(1,0,0).applyQuaternion(yaw.quaternion); right.y=0; right.normalize();
-
-  yaw.position.addScaledVector(fwd, joyDY*MOVE_SPEED*dt);
-  yaw.position.addScaledVector(right, joyDX*MOVE_SPEED*dt);
-
-  // gravité + jump
-  velY -= 9.8*dt;
-  yaw.position.y += velY*dt;
-  if(yaw.position.y<1.8){ yaw.position.y=1.8; velY=0; onGround=true; }
-
-  // collision simple
-  yaw.position.x = Math.max(-9.5, Math.min(9.5, yaw.position.x));
-  yaw.position.z = Math.max(-9.5, Math.min(9.5, yaw.position.z));
-
-  renderer.render(scene, camera);
+    // Jump
+    document.getElementById('jumpBtn').addEventListener('touchstart', ()=>{ if(canJump){ velocity.y = 5; canJump=false; } });
 }
-loop();
+
+function onWindowResize(){
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// Joystick mobile
+let stick = document.getElementById('stick');
+let joystick = document.getElementById('joystick');
+let stickActive = false;
+let startX, startY;
+
+stick.addEventListener('touchstart', e => {
+    stickActive = true;
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+});
+
+stick.addEventListener('touchmove', e => {
+    if(!stickActive) return;
+    const touch = e.touches[0];
+    let dx = touch.clientX - startX;
+    let dy = touch.clientY - startY;
+
+    dx = Math.max(-40, Math.min(40, dx));
+    dy = Math.max(-40, Math.min(40, dy));
+
+    stick.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    move.forward = -dy/40;
+    move.right = dx/40;
+
+    e.preventDefault();
+});
+
+stick.addEventListener('touchend', e => {
+    stickActive = false;
+    stick.style.transform = `translate(0px,0px)`;
+    move.forward = 0;
+    move.right = 0;
+});
+
+// Caméra glissement tactile
+let isDragging=false;
+let prevTouchX=0, prevTouchY=0;
+document.addEventListener('touchstart', e=>{
+    if(e.target===stick || e.target===document.getElementById('jumpBtn')) return;
+    isDragging=true;
+    prevTouchX = e.touches[0].clientX;
+    prevTouchY = e.touches[0].clientY;
+});
+
+document.addEventListener('touchmove', e=>{
+    if(!isDragging) return;
+    const touch = e.touches[0];
+    const dx = (touch.clientX - prevTouchX) * 0.005 * sensitivity;
+    const dy = (touch.clientY - prevTouchY) * 0.005 * sensitivity;
+
+    yawObject.rotation.y -= dx;
+    pitchObject.rotation.x -= dy;
+    pitchObject.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitchObject.rotation.x));
+
+    prevTouchX = touch.clientX;
+    prevTouchY = touch.clientY;
+});
+
+document.addEventListener('touchend', e=>{
+    isDragging=false;
+});
+
+// Collision simple avec murs
+function collide(pos){
+    const limit = 9; // limite des murs
+    if(pos.x<-limit) pos.x=-limit;
+    if(pos.x>limit) pos.x=limit;
+    if(pos.z<-limit) pos.z=-limit;
+    if(pos.z>limit) pos.z=limit;
+}
+
+// Animate
+function animate(){
+    requestAnimationFrame(animate);
+    const time = performance.now();
+    const delta = (time-prevTime)/1000;
+
+    velocity.x = move.right*5;
+    velocity.z = move.forward*5;
+    velocity.y -= 9.8*delta; // gravité
+
+    yawObject.position.x += velocity.x*delta;
+    yawObject.position.y += velocity.y*delta;
+    yawObject.position.z += velocity.z*delta;
+
+    // Collision sol et murs
+    if(yawObject.position.y < 2){ yawObject.position.y=2; velocity.y=0; canJump=true; }
+    collide(yawObject.position);
+
+    prevTime=time;
+    renderer.render(scene,camera);
+}
+
+init();
+animate();
 </script>
 </body>
 </html>
+
 
 
 
