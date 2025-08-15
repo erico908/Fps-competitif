@@ -24,7 +24,6 @@
 <input type="range" id="sensiSlider" min="0.1" max="2" value="1" step="0.1">
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
-
 <script>
 let camera, scene, renderer;
 let pitchObject, yawObject;
@@ -97,63 +96,50 @@ function onWindowResize(){
 let stick = document.getElementById('stick');
 let joystick = document.getElementById('joystick');
 let stickActive = false;
-let startX, startY;
+let startX=0, startY=0;
 
 document.addEventListener('touchstart', e=>{
     const touch = e.touches[0];
     if(touch.clientX < window.innerWidth/2){
-        // Joystick côté gauche
         stickActive = true;
         startX = touch.clientX;
         startY = touch.clientY;
         joystick.style.left = (startX-60) + 'px';
         joystick.style.top = (startY-60) + 'px';
         joystick.style.display = 'block';
-    } else {
-        // Caméra côté droit
-        camActive = true;
-        camPrevX = touch.clientX;
-        camPrevY = touch.clientY;
     }
 });
 
-let camActive=false, camPrevX=0, camPrevY=0;
-
 document.addEventListener('touchmove', e=>{
-    for(let touch of e.touches){
-        if(stickActive && touch.clientX < window.innerWidth/2){
-            let dx = touch.clientX - startX;
-            let dy = touch.clientY - startY;
-            dx = Math.max(-50, Math.min(50, dx));
-            dy = Math.max(-50, Math.min(50, dy));
-            stick.style.transform = `translate(${dx}px, ${dy}px)`;
-            move.forward = -dy/50;
-            move.right = dx/50;
-        }
-        if(camActive && touch.clientX > window.innerWidth/2){
-            let dx = (touch.clientX - camPrevX) * 0.008 * sensitivity;
-            let dy = (touch.clientY - camPrevY) * 0.008 * sensitivity;
-            yawObject.rotation.y -= dx;
-            pitchObject.rotation.x -= dy;
-            pitchObject.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitchObject.rotation.x));
-            camPrevX = touch.clientX;
-            camPrevY = touch.clientY;
-        }
-    }
+    if(!stickActive) return;
+    const touch = e.touches[0];
+    let dx = touch.clientX - startX;
+    let dy = touch.clientY - startY;
+    dx = Math.max(-50, Math.min(50, dx));
+    dy = Math.max(-50, Math.min(50, dy));
+    stick.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    // Déplacement + rotation caméra
+    move.forward = -dy/50;
+    move.right = dx/50;
+
+    // Caméra tourne selon horizontal stick
+    yawObject.rotation.y -= dx*0.02*sensitivity;
+    pitchObject.rotation.x -= dy*0.02*sensitivity;
+    pitchObject.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitchObject.rotation.x));
 });
 
 document.addEventListener('touchend', e=>{
-    stickActive = false;
-    camActive = false;
-    stick.style.transform = `translate(0px,0px)`;
+    stickActive=false;
+    stick.style.transform='translate(0px,0px)';
     joystick.style.display='none';
-    move.forward = 0;
-    move.right = 0;
+    move.forward=0;
+    move.right=0;
 });
 
 // Collision simple avec murs
 function collide(pos){
-    const limit = 9; 
+    const limit = 9;
     if(pos.x<-limit) pos.x=-limit;
     if(pos.x>limit) pos.x=limit;
     if(pos.z<-limit) pos.z=-limit;
@@ -166,17 +152,22 @@ function animate(){
     const time = performance.now();
     const delta = (time-prevTime)/1000;
 
-    velocity.x = move.right*5;
-    velocity.z = move.forward*5;
-    velocity.y -= 9.8*delta; // gravité
+    // Déplacement selon joystick
+    const speed = 5;
+    const forward = new THREE.Vector3();
+    forward.setFromMatrixColumn(yawObject.matrix,0);
+    forward.crossVectors(camera.up, forward);
+    yawObject.position.add(forward.multiplyScalar(move.forward*speed*delta));
+    const right = new THREE.Vector3();
+    right.setFromMatrixColumn(yawObject.matrix,0);
+    yawObject.position.add(right.multiplyScalar(move.right*speed*delta));
 
-    yawObject.position.x += velocity.x*delta;
+    // Gravité
+    velocity.y -= 9.8*delta;
     yawObject.position.y += velocity.y*delta;
-    yawObject.position.z += velocity.z*delta;
-
     if(yawObject.position.y < 2){ yawObject.position.y=2; velocity.y=0; canJump=true; }
-    collide(yawObject.position);
 
+    collide(yawObject.position);
     prevTime=time;
     renderer.render(scene,camera);
 }
@@ -186,6 +177,7 @@ animate();
 </script>
 </body>
 </html>
+
 
 
 
