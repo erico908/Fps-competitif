@@ -2,182 +2,165 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<title>FPS simple avec mouvement et rotation caméra</title>
+<title>FPS Mobile (Joystick Dynamique + Glisser Caméra)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <style>
-  body { margin: 0; overflow: hidden; background: #87ceeb; }
-  #info {
-    position: absolute; top: 10px; left: 10px; 
-    color: white; background: rgba(0,0,0,0.5); 
-    padding: 8px; font-family: Arial, sans-serif;
-    z-index: 10;
+  body { margin:0; overflow:hidden; touch-action:none; background:#000; }
+  canvas { display:block; width:100vw; height:100vh; }
+  #stick { position:absolute; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,0.45); display:none; z-index:10; }
+  #jumpBtn {
+    position:absolute; bottom:18px; right:18px;
+    width:80px; height:80px; border-radius:50%;
+    background:rgba(255,255,255,0.35); text-align:center; font-size:24px;
+    line-height:80px; color:#fff; z-index:10; user-select:none;
   }
+  #reticle {
+    position:absolute; pointer-events:none; z-index:20;
+    left:50%; top:50%; width:16px; height:16px; margin-left:-8px; margin-top:-8px;
+  }
+  #reticle::before,#reticle::after{
+    content:""; position:absolute; background:rgba(255,255,255,0.9);
+  }
+  #reticle::before{ left:7px; top:0;   width:2px; height:16px; }
+  #reticle::after { left:0;   top:7px; width:16px; height:2px; }
 </style>
 </head>
 <body>
-<div id="info">Clique dans la page, puis bouge la souris pour tourner. Utilise Z/S/Q/D pour te déplacer.</div>
+<div id="stick"></div>
+<div id="jumpBtn">↑</div>
+<div id="reticle"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
 <script>
-let camera, scene, renderer;
-let pitchObject, yawObject;
-let velocity = new THREE.Vector3();
-let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-let canJump = false;
-let prevTime = performance.now();
-let pointerLocked = false;
+// ---- Base Three.js -----
+let scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
 
-init();
-animate();
+let camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
 
-function init() {
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb); // ciel bleu
+let pitch = new THREE.Object3D();
+pitch.add(camera);
 
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+let yaw = new THREE.Object3D();
+yaw.position.set(0,1.8,0);
+yaw.add(pitch);
+scene.add(yaw);
 
-  pitchObject = new THREE.Object3D();
-  pitchObject.add(camera);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40,40), new THREE.MeshPhongMaterial({color:0x228B22}));
+floor.rotation.x = -Math.PI/2; scene.add(floor);
 
-  yawObject = new THREE.Object3D();
-  yawObject.position.y = 2; // hauteur yeux
-  yawObject.add(pitchObject);
+const wallMat = new THREE.MeshPhongMaterial({color:0x8B4513});
+function addWall(w,h,d,x,z){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),wallMat);m.position.set(x,h/2,z);scene.add(m);}
+addWall(20,4,1, 0,-10); // north
+addWall(20,4,1, 0,10);  // south
+addWall(1,4,20,-10,0);  // west
+addWall(1,4,20, 10,0);  // east
 
-  scene.add(yawObject);
+scene.add(new THREE.DirectionalLight(0xffffff,1).position.set(5,10,7));
+scene.add(new THREE.AmbientLight(0x404040));
 
-  // Sol vert
-  const floorGeometry = new THREE.PlaneGeometry(20, 20);
-  const floorMaterial = new THREE.MeshPhongMaterial({color: 0x228B22});
-  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true;
-  scene.add(floor);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+document.body.appendChild(renderer.domElement);
 
-  // Murs colorés (4 murs)
-  const wallGeometry = new THREE.BoxGeometry(20, 4, 0.5);
-  const wallMaterial1 = new THREE.MeshPhongMaterial({color: 0x8B4513});
-  const wallMaterial2 = new THREE.MeshPhongMaterial({color: 0xA0522D});
-  const backWall = new THREE.Mesh(wallGeometry, wallMaterial1);
-  backWall.position.set(0, 2, -10);
-  scene.add(backWall);
+// ---- Joystick dynamique ----
+let stick = document.getElementById("stick");
+let joyId = null, joyStartX=0, joyStartY=0, joyDX=0, joyDY=0;
+let MOVE_SPEED = 5;
 
-  const frontWall = new THREE.Mesh(wallGeometry, wallMaterial2);
-  frontWall.position.set(0, 2, 10);
-  scene.add(frontWall);
-
-  const sideWallGeometry = new THREE.BoxGeometry(0.5, 4, 20);
-  const leftWall = new THREE.Mesh(sideWallGeometry, wallMaterial1);
-  leftWall.position.set(-10, 2, 0);
-  scene.add(leftWall);
-
-  const rightWall = new THREE.Mesh(sideWallGeometry, wallMaterial2);
-  rightWall.position.set(10, 2, 0);
-  scene.add(rightWall);
-
-  // Lumière
-  const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(5, 10, 7);
-  scene.add(light);
-
-  const ambientLight = new THREE.AmbientLight(0x404040);
-  scene.add(ambientLight);
-
-  renderer = new THREE.WebGLRenderer({antialias: true});
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
-
-  // Gestion pointer lock (capture souris)
-  document.body.addEventListener('click', () => {
-    if (!pointerLocked) {
-      document.body.requestPointerLock();
-    }
-  });
-
-  document.addEventListener('pointerlockchange', () => {
-    pointerLocked = (document.pointerLockElement === document.body);
-  });
-
-  // Rotation caméra
-  document.addEventListener('mousemove', (event) => {
-    if (!pointerLocked) return;
-
-    const movementX = event.movementX || 0;
-    const movementY = event.movementY || 0;
-
-    yawObject.rotation.y -= movementX * 0.002;
-    pitchObject.rotation.x -= movementY * 0.002;
-
-    const PI_2 = Math.PI / 2;
-    pitchObject.rotation.x = Math.max(-PI_2, Math.min(PI_2, pitchObject.rotation.x));
-  });
-
-  // Gestion clavier
-  document.addEventListener('keydown', onKeyDown);
-  document.addEventListener('keyup', onKeyUp);
-
-  window.addEventListener('resize', onWindowResize);
-}
-
-function onWindowResize() {
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-function onKeyDown(event) {
-  switch(event.code) {
-    case 'KeyZ': moveForward = true; break;
-    case 'KeyS': moveBackward = true; break;
-    case 'KeyQ': moveLeft = true; break;
-    case 'KeyD': moveRight = true; break;
-    case 'Space': 
-      if(canJump === true) {
-        velocity.y += 10;
-        canJump = false;
-      }
-      break;
+window.addEventListener("pointerdown",e=>{
+  // coté gauche → joystick / coté droit → look
+  if(e.clientX < innerWidth/2){
+    joyId = e.pointerId;
+    joyStartX  = e.clientX;
+    joyStartY  = e.clientY;
+    stick.style.left = (joyStartX - 30)+"px";
+    stick.style.top  = (joyStartY - 30)+"px";
+    stick.style.display = "block";
   }
-}
+});
 
-function onKeyUp(event) {
-  switch(event.code) {
-    case 'KeyZ': moveForward = false; break;
-    case 'KeyS': moveBackward = false; break;
-    case 'KeyQ': moveLeft = false; break;
-    case 'KeyD': moveRight = false; break;
+window.addEventListener("pointermove",e=>{
+  if(e.pointerId === joyId){
+    let dx = e.clientX - joyStartX;
+    let dy = e.clientY - joyStartY;
+    // clamp
+    const max = 50;
+    const dist = Math.hypot(dx,dy);
+    if(dist>max){ const s=max/dist; dx*=s; dy*=s; }
+    stick.style.left = (joyStartX + dx - 30)+"px";
+    stick.style.top  = (joyStartY + dy - 30)+"px";
+    joyDX = dx/max;
+    joyDY = -dy/max;
   }
-}
+});
 
-function animate() {
-  requestAnimationFrame(animate);
-
-  const time = performance.now();
-  const delta = (time - prevTime) / 1000;
-
-  velocity.x -= velocity.x * 10.0 * delta;
-  velocity.z -= velocity.z * 10.0 * delta;
-  velocity.y -= 9.8 * 5.0 * delta; // gravité
-
-  if(moveForward) velocity.z -= 50.0 * delta;
-  if(moveBackward) velocity.z += 50.0 * delta;
-  if(moveLeft) velocity.x -= 50.0 * delta;
-  if(moveRight) velocity.x += 50.0 * delta;
-
-  yawObject.translateX(velocity.x * delta);
-  yawObject.translateY(velocity.y * delta);
-  yawObject.translateZ(velocity.z * delta);
-
-  if(yawObject.position.y < 2) {
-    velocity.y = 0;
-    yawObject.position.y = 2;
-    canJump = true;
+window.addEventListener("pointerup",e=>{
+  if(e.pointerId === joyId){
+    joyId=null;
+    stick.style.display="none";
+    joyDX=0; joyDY=0;
   }
+});
 
-  prevTime = time;
+// ---- Caméra - glisser coté droit ----
+let lookId = null, lastX=0,lastY=0;
+let SENS = 0.003;
+
+window.addEventListener("pointerdown",e=>{
+  if(e.clientX > innerWidth/2 && lookId==null){
+    lookId=e.pointerId; lastX=e.clientX; lastY=e.clientY;
+  }
+});
+window.addEventListener("pointermove",e=>{
+  if(e.pointerId === lookId){
+    let dx=e.clientX-lastX, dy=e.clientY-lastY;
+    lastX=e.clientX; lastY=e.clientY;
+    yaw.rotation.y -= dx*SENS;
+    pitch.rotation.x -= dy*SENS;
+    const lim=Math.PI/2; pitch.rotation.x=Math.max(-lim,Math.min(lim,pitch.rotation.x));
+  }
+});
+window.addEventListener("pointerup",e=>{
+  if(e.pointerId===lookId) lookId=null;
+});
+
+// ---- Jump ----
+let velY = 0, onGround = true;
+document.getElementById("jumpBtn").addEventListener("pointerdown",()=>{
+  if(onGround){ velY = 5; onGround=false; }
+});
+
+// ---- Loop ----
+let prev=performance.now();
+function loop(){
+  requestAnimationFrame(loop);
+  let now=performance.now(), dt=(now-prev)/1000; prev=now;
+
+  // déplacement
+  let fwd = new THREE.Vector3(0,0,-1).applyQuaternion(yaw.quaternion); fwd.y=0; fwd.normalize();
+  let right = new THREE.Vector3(1,0,0).applyQuaternion(yaw.quaternion); right.y=0; right.normalize();
+
+  yaw.position.addScaledVector(fwd, joyDY*MOVE_SPEED*dt);
+  yaw.position.addScaledVector(right, joyDX*MOVE_SPEED*dt);
+
+  // gravité + jump
+  velY -= 9.8*dt;
+  yaw.position.y += velY*dt;
+  if(yaw.position.y<1.8){ yaw.position.y=1.8; velY=0; onGround=true; }
+
+  // collision simple
+  yaw.position.x = Math.max(-9.5, Math.min(9.5, yaw.position.x));
+  yaw.position.z = Math.max(-9.5, Math.min(9.5, yaw.position.z));
 
   renderer.render(scene, camera);
 }
+loop();
 </script>
 </body>
 </html>
+
 
 
 
