@@ -2,153 +2,144 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>FPS Style CS-Go Complet</title>
+<title>FPS Style CS:GO Simple</title>
 <style>
 body { margin:0; overflow:hidden; }
 canvas { display:block; }
-#joystickContainer {
-    position:absolute;
-    bottom:50px;
-    left:50px;
-    width:150px;
-    height:150px;
-    touch-action:none;
-    display:none;
-}
-#joystick { width:100%; height:100%; border-radius:50%; background:rgba(100,100,100,0.3); position:relative; }
-#stick { width:60px; height:60px; background:rgba(200,200,200,0.6); border-radius:50%; position:absolute; left:45px; top:45px; touch-action:none; }
 </style>
 </head>
 <body>
-<div id="joystickContainer">
-    <div id="joystick">
-        <div id="stick"></div>
-    </div>
-</div>
-
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 
-// Scene
+// Scene et caméra
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xa0a0a0);
+scene.background = new THREE.Color(0x87ceeb); // ciel bleu
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 camera.position.set(0,2,5);
 
+// Renderer
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Lumières
+// Lumière
 const light = new THREE.DirectionalLight(0xffffff,1);
 light.position.set(50,100,50);
 scene.add(light);
 scene.add(new THREE.AmbientLight(0x404040));
 
-// Sol texturé
-const floorTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
-floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
-floorTexture.repeat.set(25,25);
-const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(50,50),
-    new THREE.MeshStandardMaterial({map:floorTexture})
-);
+// Sol
+const floorMat = new THREE.MeshStandardMaterial({color:0x808080});
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(100,100), floorMat);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-// Murs et obstacles
-const wallMat = new THREE.MeshStandardMaterial({color:0x444444});
-const boxMat = new THREE.MeshStandardMaterial({color:0x654321});
+// Murs style CS:GO
+const wallMat = new THREE.MeshStandardMaterial({color:0x555555});
 const walls = [];
-function createWall(x,y,z,w,h,d){ const wall=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMat); wall.position.set(x,y,z); scene.add(wall); walls.push(wall);}
-createWall(0,2.5,-25,50,5,1);
-createWall(0,2.5,25,50,5,1);
-createWall(-25,2.5,0,1,5,50);
-createWall(25,2.5,0,1,5,50);
-function createBox(x,y,z){ const box=new THREE.Mesh(new THREE.BoxGeometry(2,2,2), boxMat); box.position.set(x,y,z); scene.add(box); walls.push(box);}
-createBox(0,1,0); createBox(-5,1,5); createBox(5,1,-5);
+function addWall(x,y,z,w,h,d){
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMat);
+    wall.position.set(x,y,z);
+    scene.add(wall);
+    walls.push(wall);
+}
+
+// Crée des murs autour de la map
+addWall(0,2.5,-50,100,5,1); // fond
+addWall(0,2.5,50,100,5,1);  // avant
+addWall(-50,2.5,0,1,5,100); // gauche
+addWall(50,2.5,0,1,5,100);  // droite
+
+// Obstacles intérieurs
+addWall(-10,1,0,5,2,10);
+addWall(10,1,5,5,2,10);
+addWall(0,1,-10,10,2,5);
 
 // Cibles
-const targets=[]; const targetMat=new THREE.MeshStandardMaterial({color:0xff0000});
-function spawnTarget(){ const t=new THREE.Mesh(new THREE.BoxGeometry(1,1,1), targetMat); t.position.set(Math.random()*40-20,1,Math.random()*40-20); scene.add(t); targets.push(t);}
-for(let i=0;i<10;i++) spawnTarget();
+const targets = [];
+const targetMat = new THREE.MeshStandardMaterial({color:0xff0000});
+function spawnTarget(){
+    const t = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), targetMat);
+    t.position.set(Math.random()*80-40,0.5,Math.random()*80-40);
+    scene.add(t);
+    targets.push(t);
+}
+for(let i=0;i<20;i++) spawnTarget();
 
-// AK-47 avec mains
-let gun, flash;
-const loader = new GLTFLoader();
-loader.load('https://threejs.org/examples/models/gltf/AK47/scene.gltf', (gltf)=>{
-    gun = gltf.scene;
-    gun.scale.set(1,1,1);
-    gun.position.set(0,-0.5,-1);
-    camera.add(gun);
+// Contrôle clavier + souris (FPS)
+let move = {forward:false,backward:false,left:false,right:false};
+let velocity = new THREE.Vector3();
+document.addEventListener('keydown', e=>{
+    if(e.code==='KeyZ') move.forward=true;
+    if(e.code==='KeyS') move.backward=true;
+    if(e.code==='KeyQ') move.left=true;
+    if(e.code==='KeyD') move.right=true;
 });
-flash = new THREE.PointLight(0xffaa00,2,5,2);
-flash.position.set(0,0,-1);
-camera.add(flash);
-flash.visible=false;
+document.addEventListener('keyup', e=>{
+    if(e.code==='KeyZ') move.forward=false;
+    if(e.code==='KeyS') move.backward=false;
+    if(e.code==='KeyQ') move.left=false;
+    if(e.code==='KeyD') move.right=false;
+});
 
-// Mobile joystick
-const isMobile=/Mobi|Android/i.test(navigator.userAgent);
-let move={forward:false,backward:false,left:false,right:false}, velocity=new THREE.Vector3();
-if(isMobile){ document.getElementById('joystickContainer').style.display='block'; 
-const stick=document.getElementById('stick'); let startX,startY,dx=0,dz=0;
-stick.addEventListener('touchstart', e=>{ startX=e.touches[0].clientX; startY=e.touches[0].clientY; });
-stick.addEventListener('touchmove', e=>{ dx=(e.touches[0].clientX-startX)/50; dz=(e.touches[0].clientY-startY)/50; dx=Math.max(-1,Math.min(1,dx)); dz=Math.max(-1,Math.min(1,dz)); });
-stick.addEventListener('touchend', e=>{ dx=0; dz=0; });
-} else {
-document.addEventListener('keydown', e=>{ if(e.code==='KeyZ') move.forward=true; if(e.code==='KeyS') move.backward=true; if(e.code==='KeyQ') move.left=true; if(e.code==='KeyD') move.right=true; });
-document.addEventListener('keyup', e=>{ if(e.code==='KeyZ') move.forward=false; if(e.code==='KeyS') move.backward=false; if(e.code==='KeyQ') move.left=false; if(e.code==='KeyD') move.right=false; });
-}
-
-// Glissement caméra
 let mouseDown=false, prevX=0, prevY=0;
-document.addEventListener('mousedown', e=>{ mouseDown=true; prevX=e.clientX; prevY=e.clientY; });
-document.addEventListener('mouseup', e=>{ mouseDown=false; });
-document.addEventListener('mousemove', e=>{ if(!mouseDown)return; const dx=(e.clientX-prevX)/200; const dy=(e.clientY-prevY)/200; camera.rotation.y-=dx; camera.rotation.x-=dy; camera.rotation.x=Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x)); prevX=e.clientX; prevY=e.clientY; });
+document.addEventListener('mousedown', ()=>{ mouseDown=true; });
+document.addEventListener('mouseup', ()=>{ mouseDown=false; });
+document.addEventListener('mousemove', e=>{
+    if(!mouseDown) return;
+    const dx=(e.clientX-prevX)/200;
+    const dy=(e.clientY-prevY)/200;
+    camera.rotation.y -= dx;
+    camera.rotation.x -= dy;
+    camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+    prevX = e.clientX; prevY = e.clientY;
+});
 
-// Tir
-const bullets=[];
-function shoot(){
-    const b=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), new THREE.MeshBasicMaterial({color:0xffff00}));
-    b.position.copy(camera.position);
-    b.direction=new THREE.Vector3(); camera.getWorldDirection(b.direction);
-    bullets.push(b); scene.add(b);
-    flash.visible=true; setTimeout(()=>flash.visible=false,50);
-}
+// Tir simple avec raycast
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
 document.addEventListener('mousedown', shoot);
-if(isMobile) document.body.addEventListener('touchstart', shoot);
+function shoot(e){
+    raycaster.setFromCamera({x:0,y:0}, camera);
+    const intersects = raycaster.intersectObjects(targets);
+    if(intersects.length>0){
+        const hit = intersects[0].object;
+        scene.remove(hit);
+        targets.splice(targets.indexOf(hit),1);
+    }
+}
 
 // Animation
-const clock=new THREE.Clock();
+const clock = new THREE.Clock();
 function animate(){
     requestAnimationFrame(animate);
-    const delta=clock.getDelta();
-    if(isMobile){ velocity.set(dx*10*delta,0,dz*10*delta); camera.translateX(velocity.x); camera.translateZ(velocity.z); }
-    else{ velocity.set(0,0,0); if(move.forward) velocity.z-=10*delta; if(move.backward) velocity.z+=10*delta; if(move.left) velocity.x-=10*delta; if(move.right) velocity.x+=10*delta; camera.translateX(velocity.x); camera.translateZ(velocity.z); }
+    const delta = clock.getDelta();
 
-    bullets.forEach((b,i)=>{
-        b.position.addScaledVector(b.direction,10*delta);
-        targets.forEach((t,ti)=>{
-            if(b.position.distanceTo(t.position)<1){
-                scene.remove(t); targets.splice(ti,1); scene.remove(b); bullets.splice(i,1);
-            }
-        });
-    });
+    // Déplacement
+    velocity.set(0,0,0);
+    if(move.forward) velocity.z -= 10*delta;
+    if(move.backward) velocity.z += 10*delta;
+    if(move.left) velocity.x -= 10*delta;
+    if(move.right) velocity.x += 10*delta;
+    camera.translateX(velocity.x);
+    camera.translateZ(velocity.z);
+
     renderer.render(scene,camera);
 }
 animate();
 
 // Resize
 window.addEventListener('resize', ()=>{
-    camera.aspect=window.innerWidth/window.innerHeight;
+    camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
 </body>
 </html>
+
 
 
 
