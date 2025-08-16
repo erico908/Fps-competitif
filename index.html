@@ -2,22 +2,10 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Mini CS Map</title>
+<title>Mini CS Map Mobile</title>
 <style>
   body { margin: 0; overflow: hidden; }
   canvas { display: block; }
-  #start {
-    position: absolute;
-    top:50%;
-    left:50%;
-    transform: translate(-50%, -50%);
-    padding:20px;
-    background:#333;
-    color:white;
-    font-size:20px;
-    cursor:pointer;
-    z-index:100;
-  }
   #score {
     position: absolute;
     top: 10px;
@@ -29,10 +17,9 @@
 </style>
 </head>
 <body>
-<div id="start">Commencer</div>
 <div id="score">Score: 0</div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/PointerLockControls.js"></script>
+
 <script>
 // ==== SCÈNE ====
 const scene = new THREE.Scene();
@@ -40,7 +27,7 @@ scene.background = new THREE.Color(0x87ceeb); // ciel bleu
 
 // ==== CAMÉRA ====
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.y = 2;
+camera.position.set(0,2,10);
 
 // ==== RENDERER ====
 const renderer = new THREE.WebGLRenderer({antialias:true});
@@ -68,10 +55,10 @@ function createWall(x,y,z,dx,dy,dz){
     mesh.position.set(x,y,z);
     scene.add(mesh);
 }
-createWall(0,2.5,-25,50,5,1); // mur arrière
-createWall(0,2.5,25,50,5,1); // mur avant
-createWall(-25,2.5,0,1,5,50); // mur gauche
-createWall(25,2.5,0,1,5,50); // mur droite
+createWall(0,2.5,-25,50,5,1);
+createWall(0,2.5,25,50,5,1);
+createWall(-25,2.5,0,1,5,50);
+createWall(25,2.5,0,1,5,50);
 
 // ==== CIBLES ====
 const targets = [];
@@ -87,46 +74,22 @@ function spawnTarget(){
 }
 for(let i=0;i<10;i++) spawnTarget();
 
-// ==== CONTROLES ====
-const controls = new THREE.PointerLockControls(camera, document.body);
-document.getElementById('start').addEventListener('click', ()=>{
-    controls.lock();
-});
-controls.addEventListener('lock', ()=>{
-    document.getElementById('start').style.display='none';
-});
-
-// ==== DEPLACEMENT ====
-const move = {forward:false,back:false,left:false,right:false};
-const velocity = new THREE.Vector3();
-const speed = 5;
-document.addEventListener('keydown', e=>{
-    if(e.code==='KeyW') move.forward=true;
-    if(e.code==='KeyS') move.back=true;
-    if(e.code==='KeyA') move.left=true;
-    if(e.code==='KeyD') move.right=true;
-});
-document.addEventListener('keyup', e=>{
-    if(e.code==='KeyW') move.forward=false;
-    if(e.code==='KeyS') move.back=false;
-    if(e.code==='KeyA') move.left=false;
-    if(e.code==='KeyD') move.right=false;
-});
-
 // ==== BALLES ====
 const bullets = [];
 const bulletSpeed = 50;
-document.addEventListener('click', ()=>{
+function shoot(){
     const bulletGeo = new THREE.SphereGeometry(0.1,8,8);
     const bulletMat = new THREE.MeshBasicMaterial({color:0xffff00});
     const bullet = new THREE.Mesh(bulletGeo, bulletMat);
     bullet.position.copy(camera.position);
-    const dir = new THREE.Vector3();
-    camera.getWorldDirection(dir);
+    const dir = new THREE.Vector3(0,0,-1);
+    dir.applyQuaternion(camera.quaternion);
     bullet.userData = {dir: dir};
     scene.add(bullet);
     bullets.push(bullet);
-});
+}
+document.addEventListener('click', shoot);
+document.addEventListener('touchstart', shoot);
 
 // ==== SCORE ====
 let score=0;
@@ -151,22 +114,11 @@ function animate(){
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
 
-    // mouvement
-    velocity.set(0,0,0);
-    if(move.forward) velocity.z -= speed*delta;
-    if(move.back) velocity.z += speed*delta;
-    if(move.left) velocity.x -= speed*delta;
-    if(move.right) velocity.x += speed*delta;
-    controls.moveRight(velocity.x);
-    controls.moveForward(velocity.z);
-
-    // balles
     bullets.forEach(b=>{
         b.position.add(b.userData.dir.clone().multiplyScalar(bulletSpeed*delta));
     });
 
     checkHit();
-
     renderer.render(scene,camera);
 }
 animate();
