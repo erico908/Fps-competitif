@@ -2,153 +2,178 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Mini CS Go Web</title>
+<title>Mini CS Map</title>
 <style>
-  body { margin:0; overflow:hidden; background:#111; }
-  canvas { display:block; }
-  #info { position:absolute; top:10px; left:10px; color:white; font-family:sans-serif; z-index:10; }
-  #start { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-           padding:20px; background:#333; color:white; font-size:20px; cursor:pointer; }
+  body { margin: 0; overflow: hidden; }
+  canvas { display: block; }
+  #start {
+    position: absolute;
+    top:50%;
+    left:50%;
+    transform: translate(-50%, -50%);
+    padding:20px;
+    background:#333;
+    color:white;
+    font-size:20px;
+    cursor:pointer;
+    z-index:100;
+  }
+  #score {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color:white;
+    font-size:20px;
+    z-index:100;
+  }
 </style>
 </head>
 <body>
-<div id="info">Score: <span id="score">0</span></div>
-<div id="start">Cliquer pour commencer</div>
-
-<script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/controls/PointerLockControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/nipplejs@0.11.0/dist/nipplejs.min.js"></script>
-
+<div id="start">Commencer</div>
+<div id="score">Score: 0</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/PointerLockControls.js"></script>
 <script>
-let scene, camera, renderer, controls;
-let targets = [], bullets = [];
-let score = 0;
-let clock = new THREE.Clock();
+// ==== SCÈNE ====
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb); // ciel bleu
 
-// SCENE
-scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+// ==== CAMÉRA ====
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.y = 2;
 
-// CAMERA
-camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0,1.6,5);
-
-// RENDERER
-renderer = new THREE.WebGLRenderer({antialias:true});
+// ==== RENDERER ====
+const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// LIGHT
-let light = new THREE.DirectionalLight(0xffffff,1);
-light.position.set(10,10,10);
+// ==== LUMIÈRE ====
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(10,20,10);
 scene.add(light);
-scene.add(new THREE.AmbientLight(0xffffff,0.3));
+scene.add(new THREE.AmbientLight(0x404040));
 
-// SOL
-let floorGeo = new THREE.BoxGeometry(50,1,50);
-let floorMat = new THREE.MeshStandardMaterial({color:0x888888});
-let floor = new THREE.Mesh(floorGeo,floorMat);
-floor.position.y = -0.5;
+// ==== SOL ====
+const floorGeo = new THREE.BoxGeometry(50,1,50);
+const floorMat = new THREE.MeshPhongMaterial({color:0x808080});
+const floor = new THREE.Mesh(floorGeo,floorMat);
+floor.position.y=-0.5;
 scene.add(floor);
 
-// MURS
-function createWall(x,y,z,sx,sy,sz,color){
-    let geo = new THREE.BoxGeometry(sx,sy,sz);
-    let mat = new THREE.MeshStandardMaterial({color:color});
-    let wall = new THREE.Mesh(geo,mat);
-    wall.position.set(x,y,z);
-    scene.add(wall);
+// ==== MURS ====
+const wallMat = new THREE.MeshPhongMaterial({color:0x555555});
+function createWall(x,y,z,dx,dy,dz){
+    const geo = new THREE.BoxGeometry(dx,dy,dz);
+    const mesh = new THREE.Mesh(geo, wallMat);
+    mesh.position.set(x,y,z);
+    scene.add(mesh);
 }
-createWall(0,1,-20,50,2,1,0x555555);
-createWall(0,1,20,50,2,1,0x555555);
-createWall(-25,1,0,1,2,50,0x555555);
-createWall(25,1,0,1,2,50,0x555555);
+createWall(0,2.5,-25,50,5,1); // mur arrière
+createWall(0,2.5,25,50,5,1); // mur avant
+createWall(-25,2.5,0,1,5,50); // mur gauche
+createWall(25,2.5,0,1,5,50); // mur droite
 
-// CONTROLS
-controls = new THREE.PointerLockControls(camera, document.body);
+// ==== CIBLES ====
+const targets = [];
+const targetGeo = new THREE.BoxGeometry(1,1,1);
+const targetMat = new THREE.MeshPhongMaterial({color:0xff0000});
+function spawnTarget(){
+    const x = Math.random()*40-20;
+    const z = Math.random()*40-20;
+    const mesh = new THREE.Mesh(targetGeo,targetMat);
+    mesh.position.set(x,0.5,z);
+    scene.add(mesh);
+    targets.push(mesh);
+}
+for(let i=0;i<10;i++) spawnTarget();
+
+// ==== CONTROLES ====
+const controls = new THREE.PointerLockControls(camera, document.body);
 document.getElementById('start').addEventListener('click', ()=>{
     controls.lock();
+});
+controls.addEventListener('lock', ()=>{
     document.getElementById('start').style.display='none';
 });
 
-// MOBILE JOYSTICK
-let joystick = nipplejs.create({zone:document.body, mode:'static', position:{left:'80px', bottom:'80px'}, color:'white', size:80});
-let move={forward:0,right:0};
-joystick.on('move', (evt,data)=>{ move.forward = data.vector.y; move.right = data.vector.x; });
-joystick.on('end', ()=>{ move.forward=0; move.right=0; });
+// ==== DEPLACEMENT ====
+const move = {forward:false,back:false,left:false,right:false};
+const velocity = new THREE.Vector3();
+const speed = 5;
+document.addEventListener('keydown', e=>{
+    if(e.code==='KeyW') move.forward=true;
+    if(e.code==='KeyS') move.back=true;
+    if(e.code==='KeyA') move.left=true;
+    if(e.code==='KeyD') move.right=true;
+});
+document.addEventListener('keyup', e=>{
+    if(e.code==='KeyW') move.forward=false;
+    if(e.code==='KeyS') move.back=false;
+    if(e.code==='KeyA') move.left=false;
+    if(e.code==='KeyD') move.right=false;
+});
 
-// TIR
-function shoot(){
-    let geo = new THREE.SphereGeometry(0.05,8,8);
-    let mat = new THREE.MeshBasicMaterial({color:0xff0000});
-    let b = new THREE.Mesh(geo,mat);
-    b.position.copy(camera.position);
-    b.direction = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-    bullets.push(b);
-    scene.add(b);
-}
-window.addEventListener('click', shoot);
+// ==== BALLES ====
+const bullets = [];
+const bulletSpeed = 50;
+document.addEventListener('click', ()=>{
+    const bulletGeo = new THREE.SphereGeometry(0.1,8,8);
+    const bulletMat = new THREE.MeshBasicMaterial({color:0xffff00});
+    const bullet = new THREE.Mesh(bulletGeo, bulletMat);
+    bullet.position.copy(camera.position);
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    bullet.userData = {dir: dir};
+    scene.add(bullet);
+    bullets.push(bullet);
+});
 
-// CIBLES
-function spawnTarget(){
-    let geo = new THREE.BoxGeometry(0.5,0.5,0.5);
-    let mat = new THREE.MeshStandardMaterial({color:0x00ff00});
-    let t = new THREE.Mesh(geo,mat);
-    t.position.set(Math.random()*40-20,0.25,Math.random()*40-20);
-    scene.add(t);
-    targets.push(t);
-}
-for(let i=0;i<10;i++){ spawnTarget(); }
-
-// SCORE
-function hitTarget(target){
-    scene.remove(target);
-    targets.splice(targets.indexOf(target),1);
-    score++;
-    document.getElementById('score').innerText = score;
-}
-
-// ANIMATION
-function animate(){
-    requestAnimationFrame(animate);
-    let delta = clock.getDelta();
-
-    // MOVE
-    let speed = 5*delta;
-    if(controls.isLocked){
-        let dir = new THREE.Vector3();
-        camera.getWorldDirection(dir);
-        let right = new THREE.Vector3().crossVectors(camera.up,dir).normalize();
-        camera.position.addScaledVector(dir,-move.forward*speed);
-        camera.position.addScaledVector(right,move.right*speed);
-    }
-
-    // BULLETS
+// ==== SCORE ====
+let score=0;
+function checkHit(){
     bullets.forEach((b,i)=>{
-        b.position.addScaledVector(b.direction,10*delta);
-        targets.forEach(t=>{
-            if(b.position.distanceTo(t.position)<0.3){
-                hitTarget(t);
+        targets.forEach((t,j)=>{
+            if(b.position.distanceTo(t.position)<0.7){
+                scene.remove(t);
+                targets.splice(j,1);
                 scene.remove(b);
                 bullets.splice(i,1);
+                score++;
+                document.getElementById('score').innerText='Score: '+score;
             }
         });
-        if(b.position.length()>100){ scene.remove(b); bullets.splice(i,1);}
     });
+}
+
+// ==== ANIMATION ====
+const clock = new THREE.Clock();
+function animate(){
+    requestAnimationFrame(animate);
+    const delta = clock.getDelta();
+
+    // mouvement
+    velocity.set(0,0,0);
+    if(move.forward) velocity.z -= speed*delta;
+    if(move.back) velocity.z += speed*delta;
+    if(move.left) velocity.x -= speed*delta;
+    if(move.right) velocity.x += speed*delta;
+    controls.moveRight(velocity.x);
+    controls.moveForward(velocity.z);
+
+    // balles
+    bullets.forEach(b=>{
+        b.position.add(b.userData.dir.clone().multiplyScalar(bulletSpeed*delta));
+    });
+
+    checkHit();
 
     renderer.render(scene,camera);
 }
 animate();
-
-// RESIZE
-window.addEventListener('resize',()=>{
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
 </script>
 </body>
 </html>
+
 
 
 
