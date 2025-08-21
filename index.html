@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FPS Mobile AK47</title>
 <style>
-  body { margin:0; overflow:hidden; touch-action:none; font-family:sans-serif; }
+  body { margin:0; overflow:hidden; touch-action:none; }
   canvas { display:block; }
   #shootButton {
     position:absolute;
@@ -27,8 +27,19 @@
     height:20px;
     margin-left:-10px;
     margin-top:-10px;
-    border:2px solid red;
-    border-radius:50%;
+  }
+  #crosshair:before, #crosshair:after {
+    content:"";
+    position:absolute;
+    background:red;
+  }
+  #crosshair:before {
+    left:9px; top:0;
+    width:2px; height:20px;
+  }
+  #crosshair:after {
+    left:0; top:9px;
+    width:20px; height:2px;
   }
 </style>
 </head>
@@ -88,7 +99,7 @@ for(let i=0;i<20;i++){
   targets.push(t);
 }
 
-// === MAINS + AK47 simplifiée mais réaliste ===
+// === MAINS + AK47 ===
 const hand = new THREE.Object3D();
 camera.add(hand);
 
@@ -101,7 +112,7 @@ const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.3,0.1), new THREE.
 rightHand.position.set(0.15,-0.15,-0.3);
 hand.add(rightHand);
 
-// AK47 stylisée réaliste
+// AK47
 const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.6), new THREE.MeshStandardMaterial({color:0x222222}));
 gun.position.set(0,-0.05,-0.6);
 hand.add(gun);
@@ -122,7 +133,6 @@ function shoot(){
   scene.add(flash);
   setTimeout(()=>scene.remove(flash),50);
 }
-
 document.getElementById('shootButton').addEventListener('touchstart', shoot);
 document.getElementById('shootButton').addEventListener('mousedown', shoot);
 
@@ -135,7 +145,7 @@ const joystick = nipplejs.create({
   color:'blue'
 });
 joystick.on('move',(evt,data)=>{
-  if(data.identifier && data.position.x < window.innerWidth/2){
+  if(data.identifier && data.position.x < window.innerWidth/2){ // seulement gauche
     move.x = data.vector.x;
     move.z = -data.vector.y;
   }
@@ -198,6 +208,7 @@ window.addEventListener('resize', ()=>{
 </script>
 </body>
 </html>
+
 
 
 
