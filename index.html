@@ -5,11 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FPS Mobile Réaliste</title>
 <style>
-  body { margin:0; overflow:hidden; touch-action:none; }
+  body { margin:0; overflow:hidden; touch-action:none; font-family:sans-serif; }
   canvas { display:block; }
+  #shootButton {
+    position:absolute;
+    right:20px;
+    bottom:50px;
+    width:80px;
+    height:80px;
+    border-radius:50%;
+    background:red;
+    opacity:0.7;
+    border:none;
+    font-size:18px;
+    color:white;
+  }
 </style>
 </head>
 <body>
+<button id="shootButton">Tirer</button>
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
 
@@ -34,7 +48,10 @@ const ambient = new THREE.AmbientLight(0x888888, 1.5);
 scene.add(light, ambient);
 
 // === SOL ===
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshStandardMaterial({color:0x228B22}));
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(50,50), 
+  new THREE.MeshStandardMaterial({color:0x228B22})
+);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
@@ -60,15 +77,25 @@ for(let i=0;i<10;i++){
   targets.push(t);
 }
 
-// === AK-47 simplifiée et main ===
+// === MAINS + AK47 simplifiée ===
 const hand = new THREE.Object3D();
 camera.add(hand);
 
-const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.5), new THREE.MeshStandardMaterial({color:0x222222}));
-gun.position.set(0,-0.1,-0.5);
+// mains
+const leftHand = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.3,0.1), new THREE.MeshStandardMaterial({color:0xffe0bd}));
+leftHand.position.set(-0.15,-0.15,-0.3);
+hand.add(leftHand);
+
+const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.3,0.1), new THREE.MeshStandardMaterial({color:0xffe0bd}));
+rightHand.position.set(0.15,-0.15,-0.3);
+hand.add(rightHand);
+
+// AK47 simplifiée
+const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.6), new THREE.MeshStandardMaterial({color:0x222222}));
+gun.position.set(0,-0.05,-0.6);
 hand.add(gun);
 
-// === TIRS ===
+// === BULLETS ===
 const bullets = [];
 const bulletMaterial = new THREE.MeshBasicMaterial({color:0xffff00});
 function shoot(){
@@ -79,17 +106,24 @@ function shoot(){
   bullets.push(b);
   scene.add(b);
 
-  // Flash simple
+  // flash simple
   const flash = new THREE.PointLight(0xffaa00,2,3);
   flash.position.copy(camera.position).add(dir.clone().multiplyScalar(0.5));
   scene.add(flash);
   setTimeout(()=>scene.remove(flash),50);
 }
-window.addEventListener('touchstart', (e)=>{ if(e.targetTouches.length===1) shoot(); });
+
+document.getElementById('shootButton').addEventListener('touchstart', shoot);
+document.getElementById('shootButton').addEventListener('mousedown', shoot);
 
 // === JOYSTICK ===
 let move = {x:0,z:0};
-const joystick = nipplejs.create({zone:document.body,mode:'dynamic',position:{left:'80px',bottom:'80px'},color:'blue'});
+const joystick = nipplejs.create({
+  zone:document.body,
+  mode:'dynamic',
+  position:{left:'80px',bottom:'80px'},
+  color:'blue'
+});
 joystick.on('move',(evt,data)=>{
   move.x = data.vector.x;
   move.z = -data.vector.y;
@@ -99,10 +133,10 @@ joystick.on('end',()=>{ move.x=0; move.z=0; });
 // === GLISSEMENT CAMERA ===
 let touch = null;
 window.addEventListener('touchstart', e=>{
-  if(e.targetTouches.length===2) touch=e.targetTouches[0];
+  if(e.targetTouches.length===1) touch=e.targetTouches[0];
 });
 window.addEventListener('touchmove', e=>{
-  if(touch && e.targetTouches.length===2){
+  if(touch && e.targetTouches.length===1){
     const dx = e.targetTouches[0].pageX - touch.pageX;
     const dy = e.targetTouches[0].pageY - touch.pageY;
     camera.rotation.y -= dx*0.005;
@@ -117,7 +151,7 @@ window.addEventListener('touchend', ()=>{ touch=null; });
 function animate(){
   requestAnimationFrame(animate);
 
-  // Déplacement dans la direction caméra
+  // Déplacement selon caméra
   const forward = new THREE.Vector3();
   camera.getWorldDirection(forward);
   forward.y=0; forward.normalize();
@@ -152,6 +186,7 @@ window.addEventListener('resize', ()=>{
 </script>
 </body>
 </html>
+
 
 
 
