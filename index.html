@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FPS Mobile Réaliste</title>
+<title>FPS Mobile AK47</title>
 <style>
   body { margin:0; overflow:hidden; touch-action:none; font-family:sans-serif; }
   canvas { display:block; }
@@ -19,9 +19,21 @@
     border:none;
     opacity:0.8;
   }
+  #crosshair {
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:20px;
+    height:20px;
+    margin-left:-10px;
+    margin-top:-10px;
+    border:2px solid red;
+    border-radius:50%;
+  }
 </style>
 </head>
 <body>
+<div id="crosshair"></div>
 <button id="shootButton"></button>
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
@@ -76,7 +88,7 @@ for(let i=0;i<20;i++){
   targets.push(t);
 }
 
-// === MAINS + AK47 simplifiée ===
+// === MAINS + AK47 simplifiée mais réaliste ===
 const hand = new THREE.Object3D();
 camera.add(hand);
 
@@ -89,7 +101,7 @@ const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.3,0.1), new THREE.
 rightHand.position.set(0.15,-0.15,-0.3);
 hand.add(rightHand);
 
-// AK47 simplifiée
+// AK47 stylisée réaliste
 const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.6), new THREE.MeshStandardMaterial({color:0x222222}));
 gun.position.set(0,-0.05,-0.6);
 hand.add(gun);
@@ -105,7 +117,6 @@ function shoot(){
   bullets.push(b);
   scene.add(b);
 
-  // flash simple
   const flash = new THREE.PointLight(0xffaa00,2,3);
   flash.position.copy(camera.position).add(dir.clone().multiplyScalar(0.5));
   scene.add(flash);
@@ -124,8 +135,10 @@ const joystick = nipplejs.create({
   color:'blue'
 });
 joystick.on('move',(evt,data)=>{
-  move.x = data.vector.x;
-  move.z = -data.vector.y;
+  if(data.identifier && data.position.x < window.innerWidth/2){
+    move.x = data.vector.x;
+    move.z = -data.vector.y;
+  }
 });
 joystick.on('end',()=>{ move.x=0; move.z=0; });
 
@@ -185,6 +198,7 @@ window.addEventListener('resize', ()=>{
 </script>
 </body>
 </html>
+
 
 
 
