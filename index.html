@@ -128,19 +128,22 @@ for (let i=0;i<20;i++){
 const fpGroup = new THREE.Group(); // groupe mains+arme attaché à la caméra
 camera.add(fpGroup);
 fpGroup.position.set(0, -0.22, -0.55);
-// fpGroup.rotation.set(THREE.MathUtils.degToRad(-4), 0, 0); <-- enlevé pour avoir arme droite (modif demandée)
-fpGroup.rotation.set(0,0,0); // **AK-47 tenue droite** (changement demandé)
+// Arme tenue droite (pas d'inclinaison)
+fpGroup.rotation.set(0,0,0);
 
 // Mains (lowpoly)
+// left hand keep neutral skin if you want, right hand uses steel to remove beige at the trigger
 const skin = new THREE.MeshStandardMaterial({ color:0xffd1a4, roughness:.8 });
+const steel = new THREE.MeshStandardMaterial({ color:0x222222, roughness:.6, metalness:.4 });
 const leftHand  = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.12,0.22), skin);
-const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.12,0.22), skin);
+// right hand uses "steel" to hide the beige at the trigger (requested)
+const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.12,0.22), steel);
+
 leftHand.position.set(-0.16, -0.02, -0.08);
 rightHand.position.set( 0.12, -0.02, -0.05);
 fpGroup.add(leftHand, rightHand);
 
 // AK-47 stylisée (barrel + handguard + receiver + mag + stock + sights)
-const steel = new THREE.MeshStandardMaterial({ color:0x222222, roughness:.6, metalness:.4 });
 const wood  = new THREE.MeshStandardMaterial({ color:0x8b4513, roughness:.8, metalness:0 });
 
 const ak = new THREE.Group();
@@ -151,7 +154,7 @@ const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.55, 12), st
 barrel.rotation.z = Math.PI/2; barrel.position.set(0.15, -0.02, 0.0);
 ak.add(barrel);
 
-// garde-main
+// garde-main (ici en bois pour contraste)
 const handguard = new THREE.Mesh(new THREE.BoxGeometry(0.30,0.06,0.09), wood);
 handguard.position.set(0.03, -0.02, 0.0);
 ak.add(handguard);
@@ -179,10 +182,12 @@ const sightFront = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.04,0.02), steel);
 sightFront.position.set(0.30, 0.01, 0);
 ak.add(sightRear, sightFront);
 
-// légère position mains vs arme
-// --- ajusté Z des mains pour enlever le "truc beige" visible au niveau de la gâchette (modif demandée) ---
+// Ajuster Z des mains pour réduire toute jointure visible (toujours présent si on change géométrie)
 leftHand.position.set(-0.06, -0.04, -0.12);
 rightHand.position.set(-0.19, -0.05, -0.12);
+
+// S'assurer que l'AK elle-même n'est pas penchée
+ak.rotation.set(0,0,0);
 
 // -------------------- CONTRÔLES MOBILE --------------------
 
@@ -195,11 +200,15 @@ const joystick = nipplejs.create({
   size: 110
 });
 
-let moveX = 0, moveZ = 0; // -1..1
+// moveX/moveZ => -1..1
+let moveX = 0, moveZ = 0;
 joystick.on('move', (evt, data) => {
-  // vecteur déjà normalisé par nipplejs
-  moveX = data.vector.x;      
-  moveZ = data.vector.y;     // **CHANGÉ ICI : suppression du - pour corriger haut/bas (haut = avancer)**
+  if (!data || !data.vector) return;
+  // Mapping robuste : pousser le stick vers le haut doit avancer (moveZ positif)
+  // NippleJS vector.y est négatif quand on pousse vers le haut dans certains cas,
+  // donc on inverse pour garantir que "haut = avancer"
+  moveX = data.vector.x;
+  moveZ = -data.vector.y; // <-- inversion appliquée pour corriger haut/bas
 });
 joystick.on('end', () => { moveX = 0; moveZ = 0; });
 
@@ -210,6 +219,7 @@ const lookZone = document.getElementById('lookZone');
 const SENS_X = 0.0038; // sensibilité horizontale
 const SENS_Y = 0.0032; // sensibilité verticale (pitch)
 
+// touch-based look (mobile)
 lookZone.addEventListener('touchstart', (e)=>{
   e.preventDefault();
   const t = e.changedTouches[0];
@@ -223,8 +233,9 @@ lookZone.addEventListener('touchmove', (e)=>{
       const dx = t.pageX - lastX;
       const dy = t.pageY - lastY;
       // Rotation FPS: yaw (y), pitch (x)
+      // On applique +dy pour que glisser vers le bas fasse bien regarder vers le bas (comportement intuitif)
       yaw.rotation.y -= dx * SENS_X;
-      pitch.rotation.x -= dy * SENS_Y;
+      pitch.rotation.x += dy * SENS_Y;
       // Clamp pitch
       pitch.rotation.x = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch.rotation.x));
       lastX = t.pageX; lastY = t.pageY;
@@ -321,6 +332,7 @@ addEventListener('resize', ()=>{
 </script>
 </body>
 </html>
+
 
 
 
