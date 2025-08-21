@@ -128,7 +128,8 @@ for (let i=0;i<20;i++){
 const fpGroup = new THREE.Group(); // groupe mains+arme attaché à la caméra
 camera.add(fpGroup);
 fpGroup.position.set(0, -0.22, -0.55);
-fpGroup.rotation.set(THREE.MathUtils.degToRad(-4), 0, 0);
+// fpGroup.rotation.set(THREE.MathUtils.degToRad(-4), 0, 0); <-- enlevé pour avoir arme droite (modif demandée)
+fpGroup.rotation.set(0,0,0); // **AK-47 tenue droite** (changement demandé)
 
 // Mains (lowpoly)
 const skin = new THREE.MeshStandardMaterial({ color:0xffd1a4, roughness:.8 });
@@ -179,8 +180,9 @@ sightFront.position.set(0.30, 0.01, 0);
 ak.add(sightRear, sightFront);
 
 // légère position mains vs arme
-leftHand.position.set(-0.06, -0.04, 0.02);
-rightHand.position.set(-0.19, -0.05, -0.04);
+// --- ajusté Z des mains pour enlever le "truc beige" visible au niveau de la gâchette (modif demandée) ---
+leftHand.position.set(-0.06, -0.04, -0.12);
+rightHand.position.set(-0.19, -0.05, -0.12);
 
 // -------------------- CONTRÔLES MOBILE --------------------
 
@@ -196,8 +198,8 @@ const joystick = nipplejs.create({
 let moveX = 0, moveZ = 0; // -1..1
 joystick.on('move', (evt, data) => {
   // vecteur déjà normalisé par nipplejs
-  moveX = data.vector.x;      // droite +
-  moveZ = -data.vector.y;     // avant +
+  moveX = data.vector.x;      
+  moveZ = data.vector.y;     // **changement : suppression du - pour corriger haut/bas (haut = avancer)**
 });
 joystick.on('end', () => { moveX = 0; moveZ = 0; });
 
@@ -319,6 +321,7 @@ addEventListener('resize', ()=>{
 </script>
 </body>
 </html>
+
 
 
 
