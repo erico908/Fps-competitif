@@ -1,254 +1,217 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FPS Mobile AK47</title>
+<title>FPS Mobile</title>
 <style>
-  body { margin:0; overflow:hidden; touch-action:none; }
-  canvas { display:block; }
-  #shootButton {
-    position:absolute;
-    right:20px;
-    bottom:50px;
-    width:80px;
-    height:80px;
-    border-radius:50%;
-    background: url('https://img.icons8.com/emoji/48/fire.png') no-repeat center center;
-    background-size:contain;
-    border:none;
-    opacity:0.8;
+  body { margin: 0; overflow: hidden; }
+  canvas { display: block; }
+
+  /* Joystick */
+  #joystickContainer {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 120px;
+    height: 120px;
+    touch-action: none;
   }
+
+  /* Tir bouton */
+  #shootBtn {
+    position: absolute;
+    bottom: 40px;
+    right: 40px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: red;
+    opacity: 0.7;
+    text-align: center;
+    line-height: 80px;
+    font-size: 24px;
+    color: white;
+    user-select: none;
+    touch-action: none;
+  }
+
+  /* Crosshair */
   #crosshair {
-    position:absolute;
-    top:50%;
-    left:50%;
-    width:20px;
-    height:20px;
-    margin-left:-10px;
-    margin-top:-10px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin-left: -10px;
+    margin-top: -10px;
+    pointer-events: none;
+    z-index: 1;
   }
   #crosshair:before, #crosshair:after {
-    content:"";
-    position:absolute;
-    background:red;
+    content: '';
+    position: absolute;
+    background: white;
   }
   #crosshair:before {
-    left:9px; top:0;
-    width:2px; height:20px;
+    left: 9px;
+    top: 0;
+    width: 2px;
+    height: 20px;
   }
   #crosshair:after {
-    left:0; top:9px;
-    width:20px; height:2px;
+    top: 9px;
+    left: 0;
+    width: 20px;
+    height: 2px;
   }
 </style>
 </head>
 <body>
+
+<div id="joystickContainer"></div>
+<div id="shootBtn">🔥</div>
 <div id="crosshair"></div>
-<button id="shootButton"></button>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
 
 <script>
-// === SCENE ===
+// Scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
-// === CAMERA ===
+// Camera
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0,1.6,10);
+camera.position.set(0, 1.6, 5);
 
-// === RENDERER ===
-const renderer = new THREE.WebGLRenderer({antialias:true});
+// Renderer
+const renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// === LUMIERE ===
-const light = new THREE.DirectionalLight(0xffffff, 2);
-light.position.set(5,10,5);
-const ambient = new THREE.AmbientLight(0x888888, 1.5);
-scene.add(light, ambient);
-
-// === SOL ===
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(100,100), 
-  new THREE.MeshStandardMaterial({color:0x228B22})
-);
+// Sol
+const floorGeometry = new THREE.PlaneGeometry(50, 50);
+const floorMaterial = new THREE.MeshPhongMaterial({color: 0x808080});
+const floor = new THREE.Mesh(floorGeometry, floorMaterial);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-// === MURS ===
-const wallMaterial = new THREE.MeshStandardMaterial({color:0x888888});
-function createWall(x,z,w,h,d){ 
-  const wall = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMaterial);
-  wall.position.set(x,h/2,z); 
-  scene.add(wall);
-}
-createWall(0,-50,100,4,1);
-createWall(0,50,100,4,1);
-createWall(-50,0,1,4,100);
-createWall(50,0,1,4,100);
+// Lumière
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(5, 10, 5);
+scene.add(light);
 
-// === CIBLES ===
-const targetMaterial = new THREE.MeshStandardMaterial({color:0xff0000});
-const targets = [];
-for(let i=0;i<20;i++){
-  const t = new THREE.Mesh(new THREE.BoxGeometry(1,1,0.2), targetMaterial);
-  t.position.set(Math.random()*80-40,1,Math.random()*80-40);
+// Cibles
+const targetGeometry = new THREE.BoxGeometry(1,1,0.2);
+const targetMaterial = new THREE.MeshStandardMaterial({color: 0xff0000});
+let targets = [];
+for(let i=0;i<10;i++){
+  const t = new THREE.Mesh(targetGeometry,targetMaterial.clone());
+  t.position.set((Math.random()-0.5)*30,1, (Math.random()-0.5)*30);
   scene.add(t);
   targets.push(t);
 }
 
-// === MAINS + AK47 ===
-const hand = new THREE.Object3D();
+// Mains + arme (simplifié)
+const handGeometry = new THREE.BoxGeometry(0.3,0.3,0.3);
+const handMaterial = new THREE.MeshStandardMaterial({color:0xffd1a4});
+const hand = new THREE.Mesh(handGeometry, handMaterial);
+hand.position.set(0,-0.4,-0.5);
 camera.add(hand);
 
-// mains
-const leftHand = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.3,0.1), new THREE.MeshStandardMaterial({color:0xffe0bd}));
-leftHand.position.set(-0.15,-0.15,-0.3);
-hand.add(leftHand);
+const akGeometry = new THREE.BoxGeometry(0.1,0.1,0.8);
+const akMaterial = new THREE.MeshStandardMaterial({color:0x222222});
+const ak = new THREE.Mesh(akGeometry, akMaterial);
+ak.position.set(0,-0.2,-0.9);
+camera.add(ak);
 
-const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.3,0.1), new THREE.MeshStandardMaterial({color:0xffe0bd}));
-rightHand.position.set(0.15,-0.15,-0.3);
-hand.add(rightHand);
+scene.add(camera);
 
-// AK47
-const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.6), new THREE.MeshStandardMaterial({color:0x222222}));
-gun.position.set(0,-0.05,-0.6);
-hand.add(gun);
-
-// === BULLETS ===
-const bullets = [];
-const bulletMaterial = new THREE.MeshBasicMaterial({color:0xffff00});
-function shoot(){
-  const b = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), bulletMaterial);
-  b.position.copy(camera.position);
-  const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-  b.userData.velocity = dir.multiplyScalar(0.5);
-  bullets.push(b);
-  scene.add(b);
-
-  const flash = new THREE.PointLight(0xffaa00,2,3);
-  flash.position.copy(camera.position).add(dir.clone().multiplyScalar(0.5));
-  scene.add(flash);
-  setTimeout(()=>scene.remove(flash),50);
-}
-document.getElementById('shootButton').addEventListener('touchstart', shoot);
-document.getElementById('shootButton').addEventListener('mousedown', shoot);
-
-// === JOYSTICK GAUCHE ===
-let move = {x:0,z:0};
+// Joystick
 const joystick = nipplejs.create({
-  zone:document.body,
-  mode:'static',
-  position:{left:'80px',bottom:'80px'},
-  color:'blue'
+  zone: document.getElementById('joystickContainer'),
+  mode: 'static',
+  position: { left: '60px', bottom: '60px' },
+  color: 'blue'
 });
-joystick.on('move',(evt,data)=>{
-  if(data.identifier && data.position.x < window.innerWidth/2){ // seulement gauche
-    move.x = data.vector.x;
-    move.z = -data.vector.y;
-  }
+let move = {x:0,z:0};
+joystick.on('move', (evt, data)=>{
+  const force = data.distance/50;
+  const angle = data.angle.radian;
+  move.x = Math.sin(angle)*force;
+  move.z = Math.cos(angle)*force;
 });
-joystick.on('end',()=>{ move.x=0; move.z=0; });
+joystick.on('end', ()=>{move.x=0; move.z=0;});
 
-// === GLISSEMENT CAMERA DROITE ===
+// Caméra tactile droite
 let touch = null;
-window.addEventListener('touchstart', e=>{
-  if(e.targetTouches.length===1 && e.targetTouches[0].pageX > window.innerWidth/2) touch=e.targetTouches[0];
-});
-window.addEventListener('touchmove', e=>{
-  if(touch && e.targetTouches.length===1){
-    const dx = e.targetTouches[0].pageX - touch.pageX;
-    const dy = e.targetTouches[0].pageY - touch.pageY;
-    camera.rotation.y -= dx*0.005;
-    camera.rotation.x -= dy*0.005;
-    camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
-    touch=e.targetTouches[0];
+window.addEventListener('touchstart', e => {
+  for (let t of e.targetTouches) {
+    if (t.pageX > window.innerWidth/2) { 
+      touch = t; break;
+    }
   }
 });
-window.addEventListener('touchend', ()=>{ touch=null; });
+window.addEventListener('touchmove', e => {
+  if(!touch) return;
+  for (let t of e.targetTouches){
+    if(t.identifier===touch.identifier){
+      const dx = t.pageX - touch.pageX;
+      const dy = t.pageY - touch.pageY;
+      camera.rotation.y -= dx*0.005;
+      camera.rotation.x -= dy*0.005;
+      camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+      touch = t;
+      break;
+    }
+  }
+});
+window.addEventListener('touchend', e=>{touch=null;});
 
-// === ANIMATION ===
-function animate(){
-  requestAnimationFrame(animate);
+// Tir
+document.getElementById('shootBtn').addEventListener('touchstart', shoot);
+function shoot(){
+  // Rayon vers crosshair
+  const raycaster = new THREE.Raycaster();
+  const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+  raycaster.set(camera.position, dir);
 
-  // Déplacement selon caméra
-  const forward = new THREE.Vector3();
-  camera.getWorldDirection(forward);
-  forward.y=0; forward.normalize();
-  const right = new THREE.Vector3().crossVectors(camera.up, forward).normalize();
-  camera.position.add(forward.clone().multiplyScalar(move.z*0.15));
-  camera.position.add(right.clone().multiplyScalar(move.x*0.15));
-
-  // Update balles
-  bullets.forEach((b,i)=>{
-    b.position.add(b.userData.velocity);
-    targets.forEach((t,j)=>{
-      if(b.position.distanceTo(t.position)<0.5){
-        scene.remove(t);
-        targets.splice(j,1);
-        scene.remove(b);
-        bullets.splice(i,1);
-      }
-    });
-    if(b.position.length()>200){ scene.remove(b); bullets.splice(i,1);}
-  });
-
-  renderer.render(scene,camera);
+  const intersects = raycaster.intersectObjects(targets);
+  if(intersects.length>0){
+    intersects[0].object.material.color.set(0x00ff00); // touche
+  }
 }
-animate();
 
-// === REDIMENSION ===
+// Resize
 window.addEventListener('resize', ()=>{
   camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// Animation
+function animate(){
+  requestAnimationFrame(animate);
+
+  // Déplacement
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  forward.y=0;
+  forward.normalize();
+
+  const right = new THREE.Vector3();
+  right.crossVectors(forward, camera.up).normalize();
+
+  camera.position.add(forward.clone().multiplyScalar(move.z*0.15));
+  camera.position.add(right.clone().multiplyScalar(move.x*0.15));
+
+  renderer.render(scene,camera);
+}
+animate();
 </script>
+
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
