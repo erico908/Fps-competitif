@@ -14,16 +14,15 @@
     width:80px;
     height:80px;
     border-radius:50%;
-    background:red;
-    opacity:0.7;
+    background: url('https://img.icons8.com/emoji/48/fire.png') no-repeat center center;
+    background-size:contain;
     border:none;
-    font-size:18px;
-    color:white;
+    opacity:0.8;
   }
 </style>
 </head>
 <body>
-<button id="shootButton">Tirer</button>
+<button id="shootButton"></button>
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
 
@@ -34,7 +33,7 @@ scene.background = new THREE.Color(0x87ceeb);
 
 // === CAMERA ===
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0,1.6,5);
+camera.position.set(0,1.6,10);
 
 // === RENDERER ===
 const renderer = new THREE.WebGLRenderer({antialias:true});
@@ -49,7 +48,7 @@ scene.add(light, ambient);
 
 // === SOL ===
 const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(50,50), 
+  new THREE.PlaneGeometry(100,100), 
   new THREE.MeshStandardMaterial({color:0x228B22})
 );
 floor.rotation.x = -Math.PI/2;
@@ -62,17 +61,17 @@ function createWall(x,z,w,h,d){
   wall.position.set(x,h/2,z); 
   scene.add(wall);
 }
-createWall(0,-25,50,4,1);
-createWall(0,25,50,4,1);
-createWall(-25,0,1,4,50);
-createWall(25,0,1,4,50);
+createWall(0,-50,100,4,1);
+createWall(0,50,100,4,1);
+createWall(-50,0,1,4,100);
+createWall(50,0,1,4,100);
 
 // === CIBLES ===
 const targetMaterial = new THREE.MeshStandardMaterial({color:0xff0000});
 const targets = [];
-for(let i=0;i<10;i++){
+for(let i=0;i<20;i++){
   const t = new THREE.Mesh(new THREE.BoxGeometry(1,1,0.2), targetMaterial);
-  t.position.set(Math.random()*40-20,1,Math.random()*40-20);
+  t.position.set(Math.random()*80-40,1,Math.random()*80-40);
   scene.add(t);
   targets.push(t);
 }
@@ -116,11 +115,11 @@ function shoot(){
 document.getElementById('shootButton').addEventListener('touchstart', shoot);
 document.getElementById('shootButton').addEventListener('mousedown', shoot);
 
-// === JOYSTICK ===
+// === JOYSTICK GAUCHE ===
 let move = {x:0,z:0};
 const joystick = nipplejs.create({
   zone:document.body,
-  mode:'dynamic',
+  mode:'static',
   position:{left:'80px',bottom:'80px'},
   color:'blue'
 });
@@ -130,10 +129,10 @@ joystick.on('move',(evt,data)=>{
 });
 joystick.on('end',()=>{ move.x=0; move.z=0; });
 
-// === GLISSEMENT CAMERA ===
+// === GLISSEMENT CAMERA DROITE ===
 let touch = null;
 window.addEventListener('touchstart', e=>{
-  if(e.targetTouches.length===1) touch=e.targetTouches[0];
+  if(e.targetTouches.length===1 && e.targetTouches[0].pageX > window.innerWidth/2) touch=e.targetTouches[0];
 });
 window.addEventListener('touchmove', e=>{
   if(touch && e.targetTouches.length===1){
@@ -156,8 +155,8 @@ function animate(){
   camera.getWorldDirection(forward);
   forward.y=0; forward.normalize();
   const right = new THREE.Vector3().crossVectors(camera.up, forward).normalize();
-  camera.position.add(forward.clone().multiplyScalar(move.z*0.1));
-  camera.position.add(right.clone().multiplyScalar(move.x*0.1));
+  camera.position.add(forward.clone().multiplyScalar(move.z*0.15));
+  camera.position.add(right.clone().multiplyScalar(move.x*0.15));
 
   // Update balles
   bullets.forEach((b,i)=>{
@@ -170,7 +169,7 @@ function animate(){
         bullets.splice(i,1);
       }
     });
-    if(b.position.length()>100){ scene.remove(b); bullets.splice(i,1);}
+    if(b.position.length()>200){ scene.remove(b); bullets.splice(i,1);}
   });
 
   renderer.render(scene,camera);
@@ -186,6 +185,7 @@ window.addEventListener('resize', ()=>{
 </script>
 </body>
 </html>
+
 
 
 
