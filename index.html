@@ -199,7 +199,7 @@ let moveX = 0, moveZ = 0; // -1..1
 joystick.on('move', (evt, data) => {
   // vecteur déjà normalisé par nipplejs
   moveX = data.vector.x;      
-  moveZ = data.vector.y;     // **changement : suppression du - pour corriger haut/bas (haut = avancer)**
+  moveZ = data.vector.y;     // **CHANGÉ ICI : suppression du - pour corriger haut/bas (haut = avancer)**
 });
 joystick.on('end', () => { moveX = 0; moveZ = 0; });
 
@@ -321,6 +321,7 @@ addEventListener('resize', ()=>{
 </script>
 </body>
 </html>
+
 
 
 
