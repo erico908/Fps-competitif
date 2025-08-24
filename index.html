@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CS:GO Mobile - FPS Tactique Réaliste</title>
+    <title>CS:GO Mobile - FPS Fonctionnel</title>
     <style>
         * {
             margin: 0;
@@ -18,7 +18,7 @@
 
         body {
             font-family: 'Arial', sans-serif;
-            background: #0c0c0c;
+            background: #000;
             color: white;
             overflow: hidden;
             touch-action: none;
@@ -31,37 +31,34 @@
             width: 100%;
             height: 100vh;
             overflow: hidden;
-            background: #111;
         }
 
-        /* Vue FPS */
-        #fps-view {
+        #game-canvas {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            perspective: 1200px;
-            transform-style: preserve-3d;
+            background: #2c3e50;
         }
 
         .crosshair {
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 28px;
-            height: 28px;
+            width: 20px;
+            height: 20px;
             transform: translate(-50%, -50%);
             pointer-events: none;
             z-index: 1000;
-            border: 2px solid rgba(255, 255, 255, 0.95);
+            border: 2px solid rgba(255, 255, 255, 0.8);
             border-radius: 50%;
         }
 
         .crosshair::before, .crosshair::after {
             content: '';
             position: absolute;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.8);
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
@@ -69,215 +66,86 @@
 
         .crosshair::before {
             width: 2px;
-            height: 14px;
+            height: 8px;
         }
 
         .crosshair::after {
-            width: 14px;
+            width: 8px;
             height: 2px;
         }
 
-        /* Environnement 3D */
-        .wall {
+        .hud-element {
             position: absolute;
-            background: linear-gradient(135deg, #2c3e50, #34495e);
-            border: 1px solid #5d6d7e;
-            box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
-            transform-style: preserve-3d;
-        }
-
-        .floor {
-            position: absolute;
-            background: #2a2a2a;
-            background-image: 
-                linear-gradient(#333 1px, transparent 1px),
-                linear-gradient(90deg, #333 1px, transparent 1px);
-            background-size: 50px 50px;
-            transform-style: preserve-3d;
-        }
-
-        .ceiling {
-            position: absolute;
-            background: linear-gradient(135deg, #1a1a1a, #252525);
-            transform-style: preserve-3d;
-        }
-
-        .door {
-            position: absolute;
-            background: linear-gradient(135deg, #8b4513, #a0522d);
-            border: 3px solid #654321;
-            transform-style: preserve-3d;
-        }
-
-        .crate {
-            position: absolute;
-            background: linear-gradient(135deg, #964B00, #8B4513);
-            border: 3px solid #654321;
-            box-shadow: 0 0 25px rgba(0, 0, 0, 0.4);
-            transform-style: preserve-3d;
-        }
-
-        .pillar {
-            position: absolute;
-            background: linear-gradient(135deg, #7f8c8d, #95a5a6);
-            border: 2px solid #5d6d7e;
-            transform-style: preserve-3d;
-        }
-
-        /* Interface HUD */
-        #hud {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            border: 2px solid #333;
             pointer-events: none;
-            z-index: 2000;
         }
 
         .health-bar {
-            position: absolute;
-            top: 25px;
-            left: 25px;
-            width: 200px;
-            height: 30px;
-            background: rgba(0, 0, 0, 0.85);
-            border: 3px solid #444;
-            border-radius: 15px;
+            top: 20px;
+            left: 20px;
+            width: 150px;
+            height: 20px;
             overflow: hidden;
         }
 
         .health-fill {
             height: 100%;
             background: linear-gradient(90deg, #ff4444, #ff6b6b);
-            border-radius: 12px;
+            border-radius: 3px;
             transition: width 0.3s ease;
         }
 
         .ammo-display {
-            position: absolute;
-            bottom: 30px;
-            right: 30px;
-            background: rgba(0, 0, 0, 0.85);
-            padding: 15px 20px;
-            border-radius: 15px;
-            font-size: 22px;
+            bottom: 20px;
+            right: 20px;
+            font-size: 16px;
             font-weight: bold;
-            text-align: center;
-            border: 3px solid #444;
         }
 
-        .weapon-icon {
+        .action-btn {
             position: absolute;
-            bottom: 100px;
-            right: 30px;
-            width: 100px;
-            height: 100px;
-            background: rgba(0, 0, 0, 0.85);
-            border-radius: 15px;
+            width: 70px;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 32px;
-            border: 3px solid #444;
-        }
-
-        /* Zones de contrôle */
-        #left-zone {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 50%;
-            height: 100%;
-            z-index: 3000;
-        }
-
-        #right-zone {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 50%;
-            height: 100%;
-            z-index: 3000;
-        }
-
-        /* Joystick dynamique */
-        .joystick {
-            position: absolute;
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.4);
-            transform: translate(-50%, -50%);
-            display: none;
-            z-index: 3100;
-        }
-
-        .joystick-handle {
-            position: absolute;
-            width: 50px;
-            height: 50px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            transition: transform 0.1s ease;
-            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.4);
-        }
-
-        /* Ennemis */
-        .enemy {
-            position: absolute;
-            width: 50px;
-            height: 100px;
-            background: linear-gradient(135deg, #ff4444, #cc0000);
-            border: 3px solid #990000;
-            border-radius: 8px;
-            transform-style: preserve-3d;
+            font-size: 24px;
+            z-index: 2000;
             transition: all 0.2s ease;
         }
 
-        .enemy::before {
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 15px;
-            width: 25px;
-            height: 25px;
-            background: #333;
-            border-radius: 50%;
-            border: 2px solid #222;
+        .action-btn:active {
+            transform: scale(0.9);
+            background: rgba(255, 255, 255, 0.4);
         }
 
-        /* Effets */
-        .muzzle-flash {
-            position: absolute;
-            top: 50%;
-            right: 130px;
-            width: 45px;
-            height: 45px;
-            background: radial-gradient(circle, #ffff00 0%, #ff5500 50%, transparent 70%);
-            border-radius: 50%;
-            opacity: 0;
-            pointer-events: none;
-            z-index: 1500;
-            transform: translateY(-50%);
+        #shoot-btn {
+            bottom: 25px;
+            right: 25px;
+            background: rgba(255, 50, 50, 0.4);
+            border-color: rgba(255, 100, 100, 0.8);
         }
 
-        .bullet-hole {
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            background: radial-gradient(circle, #000 0%, #333 70%);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 900;
-            border: 1px solid #555;
+        #jump-btn {
+            bottom: 110px;
+            right: 25px;
+            background: rgba(50, 150, 255, 0.4);
+            border-color: rgba(100, 180, 255, 0.8);
         }
 
-        /* Menu */
+        #reload-btn {
+            bottom: 25px;
+            right: 110px;
+            background: rgba(50, 200, 50, 0.4);
+            border-color: rgba(100, 255, 100, 0.8);
+        }
+
         #start-screen {
             position: absolute;
             top: 0;
@@ -289,379 +157,203 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            z-index: 4000;
+            z-index: 3000;
         }
 
         .game-title {
-            font-size: 3.5em;
+            font-size: 2.5em;
             font-weight: bold;
-            margin-bottom: 40px;
-            text-shadow: 0 0 40px rgba(0, 150, 255, 1);
-            background: linear-gradient(45deg, #00b4db, #0083b0, #00b4db);
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #00b4db, #0083b0);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: glow 2s ease-in-out infinite alternate;
         }
 
         .game-button {
             background: linear-gradient(45deg, #00b4db, #0083b0);
             border: none;
-            padding: 20px 40px;
-            margin: 20px;
-            border-radius: 35px;
+            padding: 15px 30px;
+            margin: 10px;
+            border-radius: 25px;
             color: white;
-            font-size: 1.4em;
+            font-size: 1.1em;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
         }
 
         .game-button:active {
             transform: scale(0.95);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
 
         .controls-info {
-            margin-top: 40px;
-            color: #bbb;
+            margin-top: 20px;
+            color: #ccc;
             text-align: center;
-            line-height: 1.8;
-            font-size: 1.1em;
-            max-width: 90%;
-        }
-
-        /* Animations */
-        @keyframes glow {
-            from { text-shadow: 0 0 25px rgba(0, 150, 255, 0.8); }
-            to { text-shadow: 0 0 50px rgba(0, 200, 255, 1.2); }
+            font-size: 0.9em;
+            line-height: 1.5;
         }
 
         @keyframes shoot {
-            0% { opacity: 1; transform: translateY(-50%) scale(1); }
-            50% { opacity: 0.8; transform: translateY(-50%) scale(1.4); }
-            100% { opacity: 0; transform: translateY(-50%) scale(0.9); }
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(0.8); }
         }
 
-        @keyframes damage {
-            0% { background-color: transparent; }
-            50% { background-color: rgba(255, 0, 0, 0.5); }
-            100% { background-color: transparent; }
-        }
-
-        .damage-effect {
-            animation: damage 0.4s ease;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .game-title { font-size: 2.5em; }
-            .game-button { padding: 18px 35px; font-size: 1.2em; }
-            .joystick { width: 100px; height: 100px; }
-            .joystick-handle { width: 40px; height: 40px; }
+        .shoot-anim {
+            animation: shoot 0.1s ease-out;
         }
     </style>
 </head>
 <body>
     <div id="game-container">
-        <!-- Écran de démarrage -->
+        <canvas id="game-canvas"></canvas>
+        
+        <div class="crosshair"></div>
+        
+        <div class="hud-element health-bar">
+            <div class="health-fill" style="width: 100%;"></div>
+        </div>
+        
+        <div class="hud-element ammo-display">30/90</div>
+        
+        <div class="action-btn" id="shoot-btn">🔫</div>
+        <div class="action-btn" id="jump-btn">🔄</div>
+        <div class="action-btn" id="reload-btn">🔃</div>
+
         <div id="start-screen">
             <h1 class="game-title">CS:GO MOBILE</h1>
-            <p style="margin-bottom: 30px; color: #ddd; text-align: center; font-size: 1.2em;">
-                FPS TACTIQUE - MODE MULTIJOUEUR<br>
-                <span style="font-size: 0.9em; color: #bbb;">Contrôles professionnels pour mobile</span>
-            </p>
-            <button class="game-button" onclick="startGame()">JOUER EN LIGNE</button>
-            <button class="game-button" onclick="startPractice()">MODE ENTRAÎNEMENT</button>
+            <button class="game-button" onclick="startGame()">JOUER</button>
             <div class="controls-info">
-                🎮 GAUCHE: Joystick de déplacement (apparaît où vous touchez)<br>
-                🔍 DROITE: Glissez pour regarder autour de vous<br>
-                🔫 TIR: Touchez n'importe où pour tirer<br>
-                ⚡ SAUT/RELOAD: Boutons à droite
+                🎮 Toucher gauche: Déplacement<br>
+                🔍 Glisser droite: Visée<br>
+                🔫 Bouton: Tirer<br>
+                🔄 Bouton: Sauter<br>
+                🔃 Bouton: Recharger
             </div>
         </div>
-
-        <!-- Vue FPS -->
-        <div id="fps-view">
-            <div class="crosshair"></div>
-            <!-- Environnement généré dynamiquement -->
-        </div>
-
-        <!-- Interface HUD -->
-        <div id="hud">
-            <div class="health-bar">
-                <div class="health-fill" style="width: 100%;"></div>
-            </div>
-            <div class="ammo-display">30/90</div>
-            <div class="weapon-icon">🔫</div>
-        </div>
-
-        <!-- Zones de contrôle tactiles -->
-        <div id="left-zone"></div>
-        <div id="right-zone"></div>
-
-        <!-- Joystick dynamique -->
-        <div class="joystick" id="dynamic-joystick">
-            <div class="joystick-handle"></div>
-        </div>
-
-        <!-- Effets -->
-        <div class="muzzle-flash" id="muzzle-flash"></div>
     </div>
 
     <script>
-        class FPSEngine {
+        class FPSGame {
             constructor() {
+                this.canvas = document.getElementById('game-canvas');
+                this.ctx = this.canvas.getContext('2d');
                 this.gameActive = false;
+                
+                this.resize();
+                
                 this.player = {
-                    x: 200,
-                    y: 0,
-                    z: 200,
-                    rotationX: 0,
-                    rotationY: 0,
+                    x: 400,
+                    y: 300,
+                    angle: 0,
                     health: 100,
                     ammo: 30,
                     totalAmmo: 90,
-                    speed: 0.1
+                    speed: 3
                 };
-                
-                this.enemies = [];
-                this.environment = [];
-                this.bulletHoles = [];
                 
                 this.controls = {
                     moveX: 0,
                     moveY: 0,
-                    lookX: 0,
-                    lookY: 0,
-                    lastTouchX: 0,
-                    lastTouchY: 0
+                    aiming: false,
+                    aimStartX: 0
                 };
                 
-                this.joystickActive = false;
-                this.joystickPosition = { x: 0, y: 0 };
+                this.map = {
+                    walls: [
+                        // Murs extérieurs
+                        {x: 100, y: 100, width: 600, height: 20, color: '#34495e'},
+                        {x: 100, y: 100, width: 20, height: 400, color: '#34495e'},
+                        {x: 680, y: 100, width: 20, height: 400, color: '#34495e'},
+                        {x: 100, y: 480, width: 600, height: 20, color: '#34495e'},
+                        
+                        // Obstacles
+                        {x: 250, y: 200, width: 100, height: 20, color: '#8e44ad'},
+                        {x: 450, y: 200, width: 100, height: 20, color: '#8e44ad'},
+                        {x: 350, y: 350, width: 20, height: 100, color: '#8e44ad'},
+                        {x: 550, y: 300, width: 20, height: 100, color: '#8e44ad'}
+                    ],
+                    enemies: []
+                };
+                
+                // Ajouter des ennemis
+                for (let i = 0; i < 6; i++) {
+                    this.map.enemies.push({
+                        x: 150 + Math.random() * 500,
+                        y: 150 + Math.random() * 300,
+                        health: 100,
+                        active: true,
+                        color: '#e74c3c'
+                    });
+                }
                 
                 this.setupEventListeners();
-                this.generateRealMap();
+            }
+            
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
             }
             
             setupEventListeners() {
-                const leftZone = document.getElementById('left-zone');
-                const rightZone = document.getElementById('right-zone');
-                const joystick = document.getElementById('dynamic-joystick');
-                const joystickHandle = joystick.querySelector('.joystick-handle');
+                // Redimensionnement
+                window.addEventListener('resize', () => this.resize());
                 
-                // Zone gauche - Joystick de déplacement
-                leftZone.addEventListener('touchstart', (e) => {
+                // Contrôles tactiles
+                this.canvas.addEventListener('touchstart', (e) => {
                     if (!this.gameActive) return;
                     
                     const touch = e.touches[0];
-                    this.joystickActive = true;
-                    this.joystickPosition = {
-                        x: touch.clientX,
-                        y: touch.clientY
-                    };
+                    const x = touch.clientX;
                     
-                    // Afficher le joystick à la position du touché
-                    joystick.style.display = 'block';
-                    joystick.style.left = this.joystickPosition.x + 'px';
-                    joystick.style.top = this.joystickPosition.y + 'px';
+                    if (x < this.canvas.width / 2) {
+                        // Zone gauche - mouvement
+                        this.controls.moveX = touch.clientX;
+                        this.controls.moveY = touch.clientY;
+                    } else {
+                        // Zone droite - visée
+                        this.controls.aiming = true;
+                        this.controls.aimStartX = touch.clientX;
+                    }
                     
                     e.preventDefault();
                 });
                 
-                leftZone.addEventListener('touchmove', (e) => {
-                    if (!this.joystickActive) return;
+                this.canvas.addEventListener('touchmove', (e) => {
+                    if (!this.gameActive) return;
                     
                     const touch = e.touches[0];
-                    const deltaX = touch.clientX - this.joystickPosition.x;
-                    const deltaY = touch.clientY - this.joystickPosition.y;
                     
-                    // Limiter la distance du joystick
-                    const distance = Math.min(Math.sqrt(deltaX * deltaX + deltaY * deltaY), 50);
-                    const angle = Math.atan2(deltaY, deltaX);
-                    
-                    const limitedX = Math.cos(angle) * distance;
-                    const limitedY = Math.sin(angle) * distance;
-                    
-                    // Déplacer le handle
-                    joystickHandle.style.transform = `translate(-50%, -50%) translate(${limitedX}px, ${limitedY}px)`;
-                    
-                    // Contrôles normalisés
-                    this.controls.moveX = limitedX / 50;
-                    this.controls.moveY = limitedY / 50;
+                    if (this.controls.aiming) {
+                        const dx = touch.clientX - this.controls.aimStartX;
+                        this.player.angle = dx * 0.02;
+                        this.controls.aimStartX = touch.clientX;
+                    }
                     
                     e.preventDefault();
                 });
                 
-                leftZone.addEventListener('touchend', () => {
-                    this.joystickActive = false;
-                    joystick.style.display = 'none';
-                    joystickHandle.style.transform = 'translate(-50%, -50%)';
+                this.canvas.addEventListener('touchend', (e) => {
+                    this.controls.aiming = false;
                     this.controls.moveX = 0;
                     this.controls.moveY = 0;
                 });
                 
-                // Zone droite - Contrôle de la caméra
-                rightZone.addEventListener('touchstart', (e) => {
-                    if (!this.gameActive) return;
-                    
-                    const touch = e.touches[0];
-                    this.controls.lastTouchX = touch.clientX;
-                    this.controls.lastTouchY = touch.clientY;
-                    
+                // Boutons d'action
+                document.getElementById('shoot-btn').addEventListener('touchstart', (e) => {
+                    this.shoot();
                     e.preventDefault();
                 });
                 
-                rightZone.addEventListener('touchmove', (e) => {
-                    if (!this.gameActive) return;
-                    
-                    const touch = e.touches[0];
-                    const deltaX = touch.clientX - this.controls.lastTouchX;
-                    const deltaY = touch.clientY - this.controls.lastTouchY;
-                    
-                    // Contrôle de la rotation
-                    this.player.rotationY -= deltaX * 0.3;
-                    this.player.rotationX = Math.max(Math.min(this.player.rotationX - deltaY * 0.2, 60), -60);
-                    
-                    this.controls.lastTouchX = touch.clientX;
-                    this.controls.lastTouchY = touch.clientY;
-                    
+                document.getElementById('jump-btn').addEventListener('touchstart', (e) => {
+                    console.log("Saut!");
                     e.preventDefault();
                 });
                 
-                // Tir sur tout l'écran
-                document.addEventListener('touchstart', (e) => {
-                    if (this.gameActive) {
-                        this.shoot();
-                        e.preventDefault();
-                    }
-                });
-            }
-            
-            generateRealMap() {
-                const fpsView = document.getElementById('fps-view');
-                
-                // Sol principal
-                this.createFloor(-1000, -50, -1000, 2000, 2000);
-                
-                // Plafond
-                this.createCeiling(-1000, 350, -1000, 2000, 2000);
-                
-                // Murs extérieurs
-                this.createWall(-1000, 150, -1000, 2000, 400, 50); // Mur nord
-                this.createWall(-1000, 150, 950, 2000, 400, 50);   // Mur sud
-                this.createWall(-1000, 150, -1000, 50, 400, 2000); // Mur ouest
-                this.createWall(950, 150, -1000, 50, 400, 2000);   // Mur est
-                
-                // Couloirs et pièces
-                this.createWall(-500, 150, -500, 100, 400, 1000);  // Mur central vertical
-                this.createWall(-500, 150, 0, 1000, 400, 100);     // Mur central horizontal
-                
-                // Portes
-                this.createDoor(-500, 75, 0, 80, 150, 20);
-                this.createDoor(0, 75, -500, 20, 150, 80);
-                
-                // Caisses et obstacles
-                this.createCrate(-700, 50, -700, 80, 100, 80);
-                this.createCrate(-300, 50, -700, 80, 100, 80);
-                this.createCrate(700, 50, 700, 80, 100, 80);
-                this.createCrate(300, 50, 700, 80, 100, 80);
-                
-                // Piliers
-                this.createPillar(-800, 175, -800, 40, 350, 40);
-                this.createPillar(800, 175, 800, 40, 350, 40);
-                this.createPillar(-800, 175, 800, 40, 350, 40);
-                this.createPillar(800, 175, -800, 40, 350, 40);
-                
-                // Créer des ennemis
-                this.spawnEnemies(6);
-            }
-            
-            createWall(x, y, z, width, height, depth) {
-                const wall = document.createElement('div');
-                wall.className = 'wall';
-                wall.style.width = width + 'px';
-                wall.style.height = height + 'px';
-                wall.style.transform = `translate3d(${x}px, ${y - height/2}px, ${z}px)`;
-                document.getElementById('fps-view').appendChild(wall);
-                this.environment.push({ element: wall, x, y, z, width, height, depth });
-            }
-            
-            createFloor(x, y, z, width, depth) {
-                const floor = document.createElement('div');
-                floor.className = 'floor';
-                floor.style.width = width + 'px';
-                floor.style.height = depth + 'px';
-                floor.style.transform = `translate3d(${x}px, ${y}px, ${z}px) rotateX(90deg)`;
-                document.getElementById('fps-view').appendChild(floor);
-            }
-            
-            createCeiling(x, y, z, width, depth) {
-                const ceiling = document.createElement('div');
-                ceiling.className = 'ceiling';
-                ceiling.style.width = width + 'px';
-                ceiling.style.height = depth + 'px';
-                ceiling.style.transform = `translate3d(${x}px, ${y}px, ${z}px) rotateX(90deg)`;
-                document.getElementById('fps-view').appendChild(ceiling);
-            }
-            
-            createDoor(x, y, z, width, height, depth) {
-                const door = document.createElement('div');
-                door.className = 'door';
-                door.style.width = width + 'px';
-                door.style.height = height + 'px';
-                door.style.transform = `translate3d(${x}px, ${y - height/2}px, ${z}px)`;
-                document.getElementById('fps-view').appendChild(door);
-            }
-            
-            createCrate(x, y, z, width, height, depth) {
-                const crate = document.createElement('div');
-                crate.className = 'crate';
-                crate.style.width = width + 'px';
-                crate.style.height = height + 'px';
-                crate.style.transform = `translate3d(${x}px, ${y}px, ${z}px)`;
-                document.getElementById('fps-view').appendChild(crate);
-            }
-            
-            createPillar(x, y, z, width, height, depth) {
-                const pillar = document.createElement('div');
-                pillar.className = 'pillar';
-                pillar.style.width = width + 'px';
-                pillar.style.height = height + 'px';
-                pillar.style.transform = `translate3d(${x}px, ${y - height/2}px, ${z}px)`;
-                document.getElementById('fps-view').appendChild(pillar);
-            }
-            
-            spawnEnemies(count) {
-                const positions = [
-                    { x: -700, z: -700 },
-                    { x: -300, z: -700 },
-                    { x: 700, z: 700 },
-                    { x: 300, z: 700 },
-                    { x: -700, z: 700 },
-                    { x: 700, z: -700 }
-                ];
-                
-                for (let i = 0; i < count; i++) {
-                    const pos = positions[i % positions.length];
-                    this.createEnemy(pos.x, 0, pos.z);
-                }
-            }
-            
-            createEnemy(x, y, z) {
-                const enemy = document.createElement('div');
-                enemy.className = 'enemy';
-                enemy.style.transform = `translate3d(${x}px, ${y}px, ${z}px)`;
-                document.getElementById('fps-view').appendChild(enemy);
-                
-                this.enemies.push({
-                    element: enemy,
-                    x: x,
-                    y: y,
-                    z: z,
-                    health: 100,
-                    active: true
+                document.getElementById('reload-btn').addEventListener('touchstart', (e) => {
+                    this.reload();
+                    e.preventDefault();
                 });
             }
             
@@ -669,129 +361,147 @@
                 if (!this.gameActive) return;
                 
                 // Mouvement du joueur
-                const moveSpeed = 5;
-                const moveX = this.controls.moveX * moveSpeed;
-                const moveZ = this.controls.moveY * moveSpeed;
-                
-                // Conversion des mouvements selon la rotation
-                const rad = this.player.rotationY * Math.PI / 180;
-                this.player.x += moveX * Math.cos(rad) + moveZ * Math.sin(rad);
-                this.player.z += moveZ * Math.cos(rad) - moveX * Math.sin(rad);
+                if (this.controls.moveX !== 0) {
+                    const moveSpeed = 0.1;
+                    this.player.x += (this.controls.moveX - this.canvas.width/2) * moveSpeed;
+                    this.player.y += (this.controls.moveY - this.canvas.height/2) * moveSpeed;
+                }
                 
                 // Limites de la map
-                this.player.x = Math.max(Math.min(this.player.x, 900), -900);
-                this.player.z = Math.max(Math.min(this.player.z, 900), -900);
+                this.player.x = Math.max(120, Math.min(this.player.x, 680));
+                this.player.y = Math.max(120, Math.min(this.player.y, 460));
                 
-                // Mise à jour de la caméra
-                this.updateCamera();
-                
-                // Mise à jour des ennemis
-                this.updateEnemies();
-                
-                // Mise à jour des effets
-                this.updateEffects();
-                
+                this.render();
                 requestAnimationFrame(() => this.update());
             }
             
-            updateCamera() {
-                const fpsView = document.getElementById('fps-view');
-                fpsView.style.transform = `
-                    rotateX(${this.player.rotationX}deg)
-                    rotateY(${this.player.rotationY}deg)
-                    translate3d(${-this.player.x}px, 0, ${-this.player.z}px)
-                `;
-            }
-            
-            updateEnemies() {
-                this.enemies.forEach(enemy => {
+            render() {
+                const ctx = this.ctx;
+                const width = this.canvas.width;
+                const height = this.canvas.height;
+                
+                // Effacer l'écran
+                ctx.fillStyle = '#2c3e50';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Dessiner la map (vue de dessus)
+                const scale = 0.8;
+                const offsetX = width/2 - this.player.x * scale;
+                const offsetY = height/2 - this.player.y * scale;
+                
+                // Dessiner le sol
+                ctx.fillStyle = '#34495e';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Dessiner les murs
+                for (const wall of this.map.walls) {
+                    ctx.fillStyle = wall.color;
+                    ctx.fillRect(
+                        wall.x * scale + offsetX,
+                        wall.y * scale + offsetY,
+                        wall.width * scale,
+                        wall.height * scale
+                    );
+                }
+                
+                // Dessiner les ennemis
+                for (const enemy of this.map.enemies) {
                     if (enemy.active) {
-                        // IA simple
-                        const dx = this.player.x - enemy.x;
-                        const dz = this.player.z - enemy.z;
-                        const distance = Math.sqrt(dx * dx + dz * dz);
+                        ctx.fillStyle = enemy.color;
+                        ctx.beginPath();
+                        ctx.arc(
+                            enemy.x * scale + offsetX,
+                            enemy.y * scale + offsetY,
+                            12 * scale,
+                            0,
+                            Math.PI * 2
+                        );
+                        ctx.fill();
                         
-                        if (distance > 200) {
-                            enemy.x += (dx / distance) * 2;
-                            enemy.z += (dz / distance) * 2;
-                        }
-                        
-                        enemy.element.style.transform = `translate3d(${enemy.x}px, 0, ${enemy.z}px)`;
+                        // Barre de vie
+                        ctx.fillStyle = '#000';
+                        ctx.fillRect(
+                            enemy.x * scale + offsetX - 15,
+                            enemy.y * scale + offsetY - 20,
+                            30,
+                            4
+                        );
+                        ctx.fillStyle = '#00ff00';
+                        ctx.fillRect(
+                            enemy.x * scale + offsetX - 15,
+                            enemy.y * scale + offsetY - 20,
+                            30 * (enemy.health / 100),
+                            4
+                        );
                     }
-                });
-            }
-            
-            updateEffects() {
-                // Nettoyer les impacts de balles
-                this.bulletHoles = this.bulletHoles.filter(hole => {
-                    hole.lifetime--;
-                    if (hole.lifetime <= 0) {
-                        hole.element.remove();
-                        return false;
-                    }
-                    return true;
-                });
+                }
+                
+                // Dessiner le joueur
+                ctx.fillStyle = '#27ae60';
+                ctx.beginPath();
+                ctx.arc(width/2, height/2, 10, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Direction du regard
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(width/2, height/2);
+                ctx.lineTo(
+                    width/2 + Math.cos(this.player.angle) * 25,
+                    height/2 + Math.sin(this.player.angle) * 25
+                );
+                ctx.stroke();
+                
+                // Grille de fond pour mieux voir le mouvement
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 1;
+                for (let x = 0; x < width; x += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < height; y += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                }
             }
             
             shoot() {
-                if (this.player.ammo <= 0) {
-                    this.reload();
-                    return;
+                if (this.player.ammo > 0) {
+                    this.player.ammo--;
+                    this.updateAmmoDisplay();
+                    
+                    // Animation de tir
+                    const btn = document.getElementById('shoot-btn');
+                    btn.classList.add('shoot-anim');
+                    setTimeout(() => btn.classList.remove('shoot-anim'), 100);
+                    
+                    // Vérifier les hits sur les ennemis
+                    this.checkShots();
                 }
-                
-                this.player.ammo--;
-                this.updateAmmoDisplay();
-                
-                // Effet de flash
-                const muzzleFlash = document.getElementById('muzzle-flash');
-                muzzleFlash.style.opacity = '1';
-                muzzleFlash.style.animation = 'none';
-                setTimeout(() => {
-                    muzzleFlash.style.animation = 'shoot 0.1s forwards';
-                }, 10);
-                
-                // Impact de balle
-                this.createBulletHole();
-                
-                // Vérifier les collisions
-                this.checkHit();
             }
             
-            createBulletHole() {
-                const fpsView = document.getElementById('fps-view');
-                const hole = document.createElement('div');
-                hole.className = 'bullet-hole';
-                
-                const distance = 500 + Math.random() * 100;
-                const offsetX = (Math.random() - 0.5) * 50;
-                const offsetY = (Math.random() - 0.5) * 30;
-                
-                hole.style.transform = `translate3d(${offsetX}px, ${offsetY}px, ${distance}px)`;
-                fpsView.appendChild(hole);
-                
-                this.bulletHoles.push({
-                    element: hole,
-                    lifetime: 200
-                });
-            }
-            
-            checkHit() {
-                this.enemies.forEach(enemy => {
+            checkShots() {
+                // Vérifier les collisions avec les ennemis (simplifié)
+                for (const enemy of this.map.enemies) {
                     if (enemy.active) {
-                        const dx = this.player.x - enemy.x;
-                        const dz = this.player.z - enemy.z;
-                        const distance = Math.sqrt(dx * dx + dz * dz);
+                        const dx = enemy.x - this.player.x;
+                        const dy = enemy.y - this.player.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
                         
-                        if (distance < 250 && Math.random() > 0.6) {
-                            enemy.health -= 30;
+                        if (distance < 100 && Math.random() > 0.5) {
+                            enemy.health -= 25;
                             if (enemy.health <= 0) {
                                 enemy.active = false;
-                                enemy.element.style.opacity = '0.3';
-                                enemy.element.style.background = '#555';
+                                enemy.color = '#777';
                             }
                         }
                     }
-                });
+                }
             }
             
             reload() {
@@ -814,39 +524,34 @@
                 this.gameActive = true;
                 document.getElementById('start-screen').style.display = 'none';
                 this.update();
-                
-                // Position initiale de la caméra
-                this.player.rotationY = -45;
-                this.updateCamera();
             }
         }
 
-        const game = new FPSEngine();
+        const game = new FPSGame();
 
         function startGame() {
             game.start();
-            setTimeout(() => {
-                if (game.gameActive) {
-                    alert('🚀 Connecté au serveur multijoueur!\n👥 Joueurs en ligne: 12/16\n🗺️ Map: Dust II');
-                }
-            }, 1500);
         }
 
-        function startPractice() {
-            game.start();
-            alert('🎯 Mode entraînement activé!\n🤖 Affrontez 6 bots pour vous perfectionner.');
-        }
+        // Empêcher les actions par défaut
+        document.addEventListener('touchstart', function(e) {
+            if (e.target.tagName !== 'BUTTON') {
+                e.preventDefault();
+            }
+        }, { passive: false });
 
-        // Instructions
-        window.addEventListener('load', () => {
-            console.log('CS:GO Mobile FPS - Contrôles professionnels chargés!');
-            console.log('🎮 Gauche: Joystick dynamique');
-            console.log('🔍 Droite: Glissement pour la caméra');
-            console.log('🔫 Tir: Tap anywhere');
-        });
+        document.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+
+        console.log("Jeu chargé! Utilisez:");
+        console.log("- Toucher la partie gauche pour vous déplacer");
+        console.log("- Glisser la partie droite pour viser");
+        console.log("- Boutons pour tirer/sauter/recharger");
     </script>
 </body>
 </html>
+
 
 
 
