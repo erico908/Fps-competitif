@@ -1,337 +1,795 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>FPS Mobile — Joystick Gauche & Cam Droite</title>
-<style>
-  html,body { margin:0; height:100%; overflow:hidden; background:#202428; }
-  canvas { display:block; touch-action:none; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CS:GO Mobile - FPS Tactique</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
 
-  /* Zones d'input strictes */
-  #joystickZone, #lookZone {
-    position:fixed; top:0; height:100vh; z-index:5;
-    touch-action:none; /* évite le scroll/zoom */
-  }
-  #joystickZone { left:0; width:50vw; }
-  #lookZone     { right:0; width:50vw; }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #0c0c0c;
+            color: white;
+            overflow: hidden;
+            touch-action: none;
+            height: 100vh;
+            width: 100vw;
+        }
 
-  /* Bouton Tir */
-  #shootBtn{
-    position:fixed; right:18px; bottom:18px;
-    width:88px; height:88px; border-radius:50%;
-    background:rgba(255,60,60,.85);
-    display:flex; align-items:center; justify-content:center;
-    font-size:34px; color:#fff; user-select:none; z-index:6;
-    box-shadow:0 6px 18px rgba(0,0,0,.35);
-    touch-action:none;
-  }
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        }
 
-  /* Crosshair (croix) */
-  #crosshair{
-    position:fixed; left:50%; top:50%;
-    width:22px; height:22px; margin-left:-11px; margin-top:-11px;
-    pointer-events:none; z-index:7;
-  }
-  #crosshair:before, #crosshair:after{
-    content:""; position:absolute; background:#ffffff;
-    opacity:.9;
-  }
-  #crosshair:before{ left:10px; top:0; width:2px; height:22px; }
-  #crosshair:after { left:0; top:10px; width:22px; height:2px; }
+        /* Vue FPS */
+        #fps-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            perspective: 1000px;
+        }
 
-  /* Aide visuelle (optionnel) – commente si tu veux */
-  .hint { position:fixed; left:10px; top:10px; color:#9fb0c5; font:12px/1.3 system-ui; z-index:8; opacity:.8; }
-</style>
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .crosshair::before, .crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .crosshair::before {
+            width: 2px;
+            height: 8px;
+            top: 6px;
+            left: 9px;
+        }
+
+        .crosshair::after {
+            width: 8px;
+            height: 2px;
+            top: 9px;
+            left: 6px;
+        }
+
+        /* Environnement 3D */
+        .environment {
+            position: absolute;
+            transform-style: preserve-3d;
+        }
+
+        .wall {
+            position: absolute;
+            background: linear-gradient(45deg, #2c3e50, #34495e);
+            border: 2px solid #7f8c8d;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .floor {
+            position: absolute;
+            background: linear-gradient(45deg, #2c2c2c, #3d3d3d);
+            background-size: 20px 20px;
+            background-image: 
+                linear-gradient(to right, #3d3d3d 1px, transparent 1px),
+                linear-gradient(to bottom, #3d3d3d 1px, transparent 1px);
+        }
+
+        .obstacle {
+            position: absolute;
+            background: linear-gradient(45deg, #8b4513, #a0522d);
+            border: 2px solid #654321;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Interface HUD */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2000;
+        }
+
+        .health-bar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 150px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #333;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444, #ff6b6b);
+            border-radius: 8px;
+            transition: width 0.3s ease;
+        }
+
+        .ammo-display {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .weapon-icon {
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        /* Contrôles tactiles */
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 150px;
+            height: 150px;
+        }
+
+        .movement-joystick {
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .joystick-handle {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            transition: transform 0.1s ease;
+        }
+
+        #look-controls {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+            width: 150px;
+            height: 150px;
+        }
+
+        /* Ennemis */
+        .enemy {
+            position: absolute;
+            width: 40px;
+            height: 80px;
+            background: linear-gradient(45deg, #ff4444, #cc0000);
+            border: 2px solid #990000;
+            border-radius: 5px;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease;
+        }
+
+        .enemy::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 10px;
+            width: 20px;
+            height: 20px;
+            background: #333;
+            border-radius: 50%;
+        }
+
+        /* Effets de tir */
+        .muzzle-flash {
+            position: absolute;
+            top: 50%;
+            right: 100px;
+            width: 30px;
+            height: 30px;
+            background: radial-gradient(circle, #ffff00 0%, #ff5500 50%, transparent 70%);
+            border-radius: 50%;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 1500;
+        }
+
+        .bullet-hole {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: radial-gradient(circle, #000 0%, #333 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 900;
+        }
+
+        /* Menu et écrans */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+        }
+
+        .game-title {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px rgba(0, 150, 255, 0.8);
+            background: linear-gradient(45deg, #00b4db, #0083b0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .game-button {
+            background: linear-gradient(45deg, #00b4db, #0083b0);
+            border: none;
+            padding: 15px 30px;
+            margin: 10px;
+            border-radius: 25px;
+            color: white;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-button:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .game-title {
+                font-size: 2em;
+            }
+            
+            .game-button {
+                padding: 12px 25px;
+                font-size: 1.1em;
+            }
+            
+            .health-bar {
+                width: 120px;
+            }
+            
+            .ammo-display {
+                font-size: 16px;
+            }
+        }
+
+        /* Animations */
+        @keyframes shoot {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(0.8); }
+        }
+
+        @keyframes damage {
+            0% { background-color: transparent; }
+            50% { background-color: rgba(255, 0, 0, 0.3); }
+            100% { background-color: transparent; }
+        }
+
+        .damage-effect {
+            animation: damage 0.3s ease;
+        }
+    </style>
 </head>
 <body>
-<div id="joystickZone"></div>
-<div id="lookZone"></div>
-<div id="shootBtn">🔥</div>
-<div id="crosshair"></div>
-<div class="hint">Gauche: joystick — Droite: regarder — 🔥: tirer</div>
+    <div id="game-container">
+        <!-- Écran de démarrage -->
+        <div id="start-screen">
+            <h1 class="game-title">CS:GO MOBILE</h1>
+            <p style="margin-bottom: 20px; color: #ccc; text-align: center;">
+                FPS Tactique - Mode Multijoueur<br>
+                <span style="font-size: 0.8em;">Contrôles tactiles optimisés pour mobile</span>
+            </p>
+            <button class="game-button" onclick="startGame()">JOUER EN LIGNE</button>
+            <button class="game-button" onclick="startPractice()">MODE ENTRAÎNEMENT</button>
+            <div style="margin-top: 30px; color: #888; font-size: 0.9em;">
+                🔫 Déplacements: Joystick gauche<br>
+                🔍 Visée: Joystick droit<br>
+                ⚡ Tir: Appuyer n'importe où
+            </div>
+        </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
+        <!-- Vue FPS -->
+        <div id="fps-view">
+            <div class="crosshair"></div>
+            <!-- Environnement généré dynamiquement -->
+        </div>
 
-<script>
-// -------------------- SCÈNE / RENDER --------------------
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87c7f3);
+        <!-- Interface HUD -->
+        <div id="hud">
+            <div class="health-bar">
+                <div class="health-fill" style="width: 100%;"></div>
+            </div>
+            <div class="ammo-display">30/90</div>
+            <div class="weapon-icon">🔫</div>
+        </div>
 
-const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-renderer.setSize(innerWidth, innerHeight);
-document.body.appendChild(renderer.domElement);
+        <!-- Contrôles tactiles -->
+        <div id="controls">
+            <div class="movement-joystick">
+                <div class="joystick-handle" id="move-handle"></div>
+            </div>
+        </div>
 
-// -------------------- CAMÉRA avec Yaw/Pitch --------------------
-const CAM_HEIGHT = 1.62;
-const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1200);
+        <div id="look-controls">
+            <div class="movement-joystick">
+                <div class="joystick-handle" id="look-handle"></div>
+            </div>
+        </div>
 
-const pitch = new THREE.Object3D();   // rotation verticale
-pitch.add(camera);
-const yaw = new THREE.Object3D();     // rotation horizontale + position
-yaw.position.set(0, CAM_HEIGHT, 8);
-yaw.add(pitch);
-scene.add(yaw);
+        <!-- Effets -->
+        <div class="muzzle-flash" id="muzzle-flash"></div>
+    </div>
 
-// Limite du pitch (pas de POV sol)
-const PITCH_LIMIT = THREE.MathUtils.degToRad(85);
+    <script>
+        class FPSEngine {
+            constructor() {
+                this.gameActive = false;
+                this.player = {
+                    x: 0,
+                    y: 0,
+                    z: 0,
+                    rotation: 0,
+                    health: 100,
+                    ammo: 30,
+                    totalAmmo: 90
+                };
+                
+                this.enemies = [];
+                this.environment = [];
+                this.bulletHoles = [];
+                
+                this.controls = {
+                    moveX: 0,
+                    moveY: 0,
+                    lookX: 0,
+                    lookY: 0
+                };
+                
+                this.setupEventListeners();
+                this.generateMap();
+            }
+            
+            setupEventListeners() {
+                // Contrôles tactiles
+                this.setupTouchControls('controls', 'move-handle', (x, y) => {
+                    this.controls.moveX = x;
+                    this.controls.moveY = y;
+                });
+                
+                this.setupTouchControls('look-controls', 'look-handle', (x, y) => {
+                    this.controls.lookX = x;
+                    this.controls.lookY = y;
+                });
+                
+                // Tir sur tout l'écran
+                document.addEventListener('touchstart', (e) => {
+                    if (this.gameActive) {
+                        this.shoot();
+                        e.preventDefault();
+                    }
+                });
+                
+                // Empêcher le zoom et le défilement
+                document.addEventListener('touchmove', (e) => {
+                    if (this.gameActive) {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+            }
+            
+            setupTouchControls(containerId, handleId, callback) {
+                const container = document.getElementById(containerId);
+                const handle = document.getElementById(handleId);
+                const rect = container.getBoundingClientRect();
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const maxDistance = 35;
+                
+                let touchId = null;
+                
+                container.addEventListener('touchstart', (e) => {
+                    if (!touchId) {
+                        const touch = e.touches[0];
+                        touchId = touch.identifier;
+                        this.updateHandlePosition(touch, handle, centerX, centerY, maxDistance, callback);
+                    }
+                });
+                
+                container.addEventListener('touchmove', (e) => {
+                    for (let i = 0; i < e.changedTouches.length; i++) {
+                        const touch = e.changedTouches[i];
+                        if (touch.identifier === touchId) {
+                            this.updateHandlePosition(touch, handle, centerX, centerY, maxDistance, callback);
+                            break;
+                        }
+                    }
+                });
+                
+                container.addEventListener('touchend', (e) => {
+                    for (let i = 0; i < e.changedTouches.length; i++) {
+                        const touch = e.changedTouches[i];
+                        if (touch.identifier === touchId) {
+                            touchId = null;
+                            handle.style.transform = 'translate(0, 0)';
+                            callback(0, 0);
+                            break;
+                        }
+                    }
+                });
+            }
+            
+            updateHandlePosition(touch, handle, centerX, centerY, maxDistance, callback) {
+                const rect = handle.parentElement.getBoundingClientRect();
+                const x = touch.clientX - rect.left - centerX;
+                const y = touch.clientY - rect.top - centerY;
+                
+                const distance = Math.min(Math.sqrt(x * x + y * y), maxDistance);
+                const angle = Math.atan2(y, x);
+                
+                const limitedX = Math.cos(angle) * distance;
+                const limitedY = Math.sin(angle) * distance;
+                
+                handle.style.transform = `translate(${limitedX}px, ${limitedY}px)`;
+                
+                // Normaliser les valeurs entre -1 et 1
+                const normX = limitedX / maxDistance;
+                const normY = limitedY / maxDistance;
+                
+                callback(normX, normY);
+            }
+            
+            generateMap() {
+                const fpsView = document.getElementById('fps-view');
+                
+                // Sol
+                const floor = document.createElement('div');
+                floor.className = 'floor';
+                floor.style.width = '2000px';
+                floor.style.height = '2000px';
+                floor.style.transform = 'translate3d(-1000px, 800px, -1000px) rotateX(90deg)';
+                fpsView.appendChild(floor);
+                
+                // Murs et obstacles
+                this.createWall(-500, 400, -500, 1000, 800, 50);
+                this.createWall(-500, 400, 450, 1000, 800, 50);
+                this.createWall(-500, 400, -500, 50, 800, 1000);
+                this.createWall(450, 400, -500, 50, 800, 1000);
+                
+                // Obstacles aléatoires
+                for (let i = 0; i < 10; i++) {
+                    const x = Math.random() * 800 - 400;
+                    const z = Math.random() * 800 - 400;
+                    const width = 50 + Math.random() * 100;
+                    const depth = 50 + Math.random() * 100;
+                    const height = 100 + Math.random() * 200;
+                    
+                    this.createObstacle(x, height/2, z, width, height, depth);
+                }
+                
+                // Créer des ennemis
+                this.spawnEnemies(5);
+            }
+            
+            createWall(x, y, z, width, height, depth) {
+                const wall = document.createElement('div');
+                wall.className = 'wall';
+                wall.style.width = width + 'px';
+                wall.style.height = height + 'px';
+                wall.style.transform = `translate3d(${x}px, ${y - height/2}px, ${z}px)`;
+                document.getElementById('fps-view').appendChild(wall);
+                this.environment.push({ element: wall, x, y, z, width, height, depth });
+            }
+            
+            createObstacle(x, y, z, width, height, depth) {
+                const obstacle = document.createElement('div');
+                obstacle.className = 'obstacle';
+                obstacle.style.width = width + 'px';
+                obstacle.style.height = height + 'px';
+                obstacle.style.transform = `translate3d(${x}px, ${y - height/2}px, ${z}px)`;
+                document.getElementById('fps-view').appendChild(obstacle);
+                this.environment.push({ element: obstacle, x, y, z, width, height, depth });
+            }
+            
+            spawnEnemies(count) {
+                const fpsView = document.getElementById('fps-view');
+                
+                for (let i = 0; i < count; i++) {
+                    const enemy = document.createElement('div');
+                    enemy.className = 'enemy';
+                    
+                    const x = Math.random() * 600 - 300;
+                    const z = Math.random() * 600 - 300;
+                    
+                    enemy.style.transform = `translate3d(${x}px, -40px, ${z}px)`;
+                    fpsView.appendChild(enemy);
+                    
+                    this.enemies.push({
+                        element: enemy,
+                        x: x,
+                        y: 0,
+                        z: z,
+                        health: 100,
+                        active: true
+                    });
+                }
+            }
+            
+            update() {
+                if (!this.gameActive) return;
+                
+                // Mise à jour du mouvement du joueur
+                this.player.x += this.controls.moveX * 5;
+                this.player.z += this.controls.moveY * 5;
+                this.player.rotation += this.controls.lookX * 3;
+                
+                // Limites de la map
+                this.player.x = Math.max(Math.min(this.player.x, 400), -400);
+                this.player.z = Math.max(Math.min(this.player.z, 400), -400);
+                
+                // Mise à jour de la caméra
+                this.updateCamera();
+                
+                // Mise à jour des ennemis
+                this.updateEnemies();
+                
+                // Mise à jour des effets
+                this.updateEffects();
+                
+                requestAnimationFrame(() => this.update());
+            }
+            
+            updateCamera() {
+                const fpsView = document.getElementById('fps-view');
+                fpsView.style.transform = `rotateY(${this.player.rotation}deg) translate3d(${-this.player.x}px, 0, ${-this.player.z}px)`;
+            }
+            
+            updateEnemies() {
+                this.enemies.forEach(enemy => {
+                    if (enemy.active) {
+                        // IA simple: se déplacer vers le joueur
+                        const dx = this.player.x - enemy.x;
+                        const dz = this.player.z - enemy.z;
+                        const distance = Math.sqrt(dx * dx + dz * dz);
+                        
+                        if (distance > 100) {
+                            enemy.x += (dx / distance) * 1;
+                            enemy.z += (dz / distance) * 1;
+                        }
+                        
+                        enemy.element.style.transform = `translate3d(${enemy.x}px, -40px, ${enemy.z}px)`;
+                    }
+                });
+            }
+            
+            updateEffects() {
+                // Nettoyer les impacts de balles anciens
+                this.bulletHoles = this.bulletHoles.filter(hole => {
+                    hole.lifetime--;
+                    if (hole.lifetime <= 0) {
+                        hole.element.remove();
+                        return false;
+                    }
+                    return true;
+                });
+            }
+            
+            shoot() {
+                if (this.player.ammo <= 0) {
+                    this.reload();
+                    return;
+                }
+                
+                this.player.ammo--;
+                this.updateAmmoDisplay();
+                
+                // Effet de flash
+                const muzzleFlash = document.getElementById('muzzle-flash');
+                muzzleFlash.style.opacity = '1';
+                muzzleFlash.style.animation = 'none';
+                setTimeout(() => {
+                    muzzleFlash.style.animation = 'shoot 0.1s forwards';
+                }, 10);
+                
+                // Créer un impact de balle
+                this.createBulletHole();
+                
+                // Vérifier les collisions avec les ennemis
+                this.checkHit();
+            }
+            
+            createBulletHole() {
+                const fpsView = document.getElementById('fps-view');
+                const hole = document.createElement('div');
+                hole.className = 'bullet-hole';
+                
+                // Position aléatoire autour du centre pour simuler le recul
+                const offsetX = (Math.random() - 0.5) * 100;
+                const offsetY = (Math.random() - 0.5) * 100;
+                
+                hole.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 500px)`;
+                fpsView.appendChild(hole);
+                
+                this.bulletHoles.push({
+                    element: hole,
+                    lifetime: 300 // Frames avant disparition
+                });
+            }
+            
+            checkHit() {
+                this.enemies.forEach(enemy => {
+                    if (enemy.active) {
+                        const dx = this.player.x - enemy.x;
+                        const dz = this.player.z - enemy.z;
+                        const distance = Math.sqrt(dx * dx + dz * dz);
+                        
+                        if (distance < 150 && Math.random() > 0.7) {
+                            enemy.health -= 25;
+                            if (enemy.health <= 0) {
+                                enemy.active = false;
+                                enemy.element.style.opacity = '0.5';
+                                enemy.element.style.background = '#555';
+                            }
+                        }
+                    }
+                });
+            }
+            
+            reload() {
+                if (this.player.totalAmmo > 0) {
+                    const needed = 30 - this.player.ammo;
+                    const reloadAmount = Math.min(needed, this.player.totalAmmo);
+                    
+                    this.player.ammo += reloadAmount;
+                    this.player.totalAmmo -= reloadAmount;
+                    this.updateAmmoDisplay();
+                }
+            }
+            
+            updateAmmoDisplay() {
+                document.querySelector('.ammo-display').textContent = 
+                    `${this.player.ammo}/${this.player.totalAmmo}`;
+            }
+            
+            takeDamage(amount) {
+                this.player.health -= amount;
+                const healthFill = document.querySelector('.health-fill');
+                healthFill.style.width = this.player.health + '%';
+                
+                // Effet de dommage
+                document.getElementById('game-container').classList.add('damage-effect');
+                setTimeout(() => {
+                    document.getElementById('game-container').classList.remove('damage-effect');
+                }, 300);
+                
+                if (this.player.health <= 0) {
+                    this.gameOver();
+                }
+            }
+            
+            gameOver() {
+                this.gameActive = false;
+                alert('Game Over! Vous avez été éliminé.');
+                this.resetGame();
+            }
+            
+            resetGame() {
+                this.player.health = 100;
+                this.player.ammo = 30;
+                this.player.totalAmmo = 90;
+                this.player.x = 0;
+                this.player.z = 0;
+                this.player.rotation = 0;
+                
+                document.querySelector('.health-fill').style.width = '100%';
+                this.updateAmmoDisplay();
+                
+                // Réinitialiser les ennemis
+                this.enemies.forEach(enemy => {
+                    enemy.health = 100;
+                    enemy.active = true;
+                    enemy.element.style.opacity = '1';
+                    enemy.element.style.background = 'linear-gradient(45deg, #ff4444, #cc0000)';
+                    
+                    const x = Math.random() * 600 - 300;
+                    const z = Math.random() * 600 - 300;
+                    enemy.x = x;
+                    enemy.z = z;
+                    enemy.element.style.transform = `translate3d(${x}px, -40px, ${z}px)`;
+                });
+            }
+            
+            start() {
+                this.gameActive = true;
+                document.getElementById('start-screen').style.display = 'none';
+                this.update();
+            }
+        }
 
-// -------------------- LUMIÈRES --------------------
-const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(6,10,4);
-const amb = new THREE.AmbientLight(0x99aabb, .6);
-scene.add(sun, amb);
+        const game = new FPSEngine();
 
-// -------------------- MAP SIMPLE (style salle) --------------------
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(80,80),
-  new THREE.MeshStandardMaterial({ color:0x3a3f46, roughness:.95, metalness:0 })
-);
-floor.rotation.x = -Math.PI/2;
-scene.add(floor);
+        function startGame() {
+            game.start();
+            
+            // Simulation de joueurs en ligne
+            setTimeout(() => {
+                if (game.gameActive) {
+                    alert('Connecté à une partie multijoueur!\nJoueurs en ligne: 8/16\nMap: Dust II');
+                }
+            }, 1000);
+        }
 
-const wallMat = new THREE.MeshStandardMaterial({ color:0x6d7785, roughness:.9 });
-function wall(w,h,d,x,z,ry=0){
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMat);
-  m.position.set(x, h/2, z);
-  m.rotation.y = ry;
-  m.castShadow = false; m.receiveShadow = true;
-  scene.add(m);
-}
-wall(80,4,1, 0, -40); // nord
-wall(80,4,1, 0,  40); // sud
-wall(1, 4,80,-40,  0); // ouest
-wall(1, 4,80, 40,  0); // est
+        function startPractice() {
+            game.start();
+            alert('Mode entraînement activé!\nAffrontez des bots pour vous entraîner.');
+        }
 
-// Obstacles basiques
-for(let i=0;i<8;i++){
-  const box = new THREE.Mesh(
-    new THREE.BoxGeometry(2+Math.random()*3, 1+Math.random()*1.5, 2+Math.random()*3),
-    new THREE.MeshStandardMaterial({ color:0x888f99 })
-  );
-  box.position.set((Math.random()-0.5)*60, box.geometry.parameters.height/2, (Math.random()-0.5)*60);
-  scene.add(box);
-}
-
-// -------------------- CIBLES --------------------
-const targets = [];
-const targetMat = new THREE.MeshStandardMaterial({ color:0xff3b3b, roughness:.7 });
-for (let i=0;i<20;i++){
-  const t = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,1,24), targetMat.clone());
-  t.position.set((Math.random()-0.5)*60, 0.5, (Math.random()-0.5)*60);
-  scene.add(t); targets.push(t);
-}
-
-// -------------------- MAINS + AK-47 (lowpoly, proportions réalistes) --------------------
-const fpGroup = new THREE.Group(); // groupe mains+arme attaché à la caméra
-camera.add(fpGroup);
-fpGroup.position.set(0, -0.22, -0.55);
-// Arme tenue droite (pas d'inclinaison)
-fpGroup.rotation.set(0,0,0);
-
-// Mains (lowpoly)
-// left hand keep neutral skin if you want, right hand uses steel to remove beige at the trigger
-const skin = new THREE.MeshStandardMaterial({ color:0xffd1a4, roughness:.8 });
-const steel = new THREE.MeshStandardMaterial({ color:0x222222, roughness:.6, metalness:.4 });
-const leftHand  = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.12,0.22), skin);
-// right hand uses "steel" to hide the beige at the trigger (requested)
-const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.12,0.22), steel);
-
-leftHand.position.set(-0.16, -0.02, -0.08);
-rightHand.position.set( 0.12, -0.02, -0.05);
-fpGroup.add(leftHand, rightHand);
-
-// AK-47 stylisée (barrel + handguard + receiver + mag + stock + sights)
-const wood  = new THREE.MeshStandardMaterial({ color:0x8b4513, roughness:.8, metalness:0 });
-
-const ak = new THREE.Group();
-fpGroup.add(ak);
-
-// canon
-const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.55, 12), steel);
-barrel.rotation.z = Math.PI/2; barrel.position.set(0.15, -0.02, 0.0);
-ak.add(barrel);
-
-// garde-main (ici en bois pour contraste)
-const handguard = new THREE.Mesh(new THREE.BoxGeometry(0.30,0.06,0.09), wood);
-handguard.position.set(0.03, -0.02, 0.0);
-ak.add(handguard);
-
-// corps/culasse
-const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.28,0.09,0.08), steel);
-receiver.position.set(-0.17, -0.01, 0.0);
-ak.add(receiver);
-
-// chargeur courbé
-const mag = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.24, 10, 1, true, 0, Math.PI), steel);
-mag.rotation.set(0,0,Math.PI/2);
-mag.position.set(-0.1, -0.12, 0.03);
-ak.add(mag);
-
-// crosse
-const stock = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.09,0.08), wood);
-stock.position.set(-0.33, -0.02, 0.0);
-ak.add(stock);
-
-// organes de visée
-const sightRear = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.03,0.02), steel);
-sightRear.position.set(-0.12, 0.02, 0);
-const sightFront = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.04,0.02), steel);
-sightFront.position.set(0.30, 0.01, 0);
-ak.add(sightRear, sightFront);
-
-// Ajuster Z des mains pour réduire toute jointure visible (toujours présent si on change géométrie)
-leftHand.position.set(-0.06, -0.04, -0.12);
-rightHand.position.set(-0.19, -0.05, -0.12);
-
-// S'assurer que l'AK elle-même n'est pas penchée
-ak.rotation.set(0,0,0);
-
-// -------------------- CONTRÔLES MOBILE --------------------
-
-// JOYSTICK : uniquement dans la zone gauche
-const joystick = nipplejs.create({
-  zone: document.getElementById('joystickZone'),
-  mode: 'dynamic',
-  color: 'deepskyblue',
-  multitouch: false,
-  size: 110
-});
-
-// moveX/moveZ => -1..1
-let moveX = 0, moveZ = 0;
-joystick.on('move', (evt, data) => {
-  if (!data || !data.vector) return;
-  // Mapping robuste : pousser le stick vers le haut doit avancer (moveZ positif)
-  // NippleJS vector.y est négatif quand on pousse vers le haut dans certains cas,
-  // donc on inverse pour garantir que "haut = avancer"
-  moveX = data.vector.x;
-  moveZ = -data.vector.y; // <-- inversion appliquée pour corriger haut/bas
-});
-joystick.on('end', () => { moveX = 0; moveZ = 0; });
-
-// LOOK : uniquement dans la zone droite (caméra FPS)
-let lookId = null, lastX = 0, lastY = 0;
-const lookZone = document.getElementById('lookZone');
-
-const SENS_X = 0.0038; // sensibilité horizontale
-const SENS_Y = 0.0032; // sensibilité verticale (pitch)
-
-// touch-based look (mobile)
-lookZone.addEventListener('touchstart', (e)=>{
-  e.preventDefault();
-  const t = e.changedTouches[0];
-  lookId = t.identifier; lastX = t.pageX; lastY = t.pageY;
-}, {passive:false});
-
-lookZone.addEventListener('touchmove', (e)=>{
-  if(lookId===null) return;
-  for (const t of e.changedTouches){
-    if (t.identifier === lookId){
-      const dx = t.pageX - lastX;
-      const dy = t.pageY - lastY;
-      // Rotation FPS: yaw (y), pitch (x)
-      // On applique +dy pour que glisser vers le bas fasse bien regarder vers le bas (comportement intuitif)
-      yaw.rotation.y -= dx * SENS_X;
-      pitch.rotation.x += dy * SENS_Y;
-      // Clamp pitch
-      pitch.rotation.x = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch.rotation.x));
-      lastX = t.pageX; lastY = t.pageY;
-      break;
-    }
-  }
-}, {passive:false});
-
-lookZone.addEventListener('touchend', (e)=>{
-  for(const t of e.changedTouches){
-    if(t.identifier===lookId){ lookId = null; break; }
-  }
-});
-
-// -------------------- TIR : balles visibles + flash --------------------
-const bullets = [];
-const bulletGeo = new THREE.SphereGeometry(0.025, 10, 10);
-const bulletMat = new THREE.MeshBasicMaterial({ color:0xffe14d });
-
-function shoot(){
-  // position à l'embouchure du canon
-  const muzzle = new THREE.Vector3();
-  barrel.getWorldPosition(muzzle);
-
-  const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).normalize();
-
-  const b = new THREE.Mesh(bulletGeo, bulletMat);
-  b.position.copy(muzzle);
-  b.userData.vel = dir.clone().multiplyScalar(1.2); // vitesse
-  b.userData.life = 2.2; // secondes
-  bullets.push(b);
-  scene.add(b);
-
-  // Muzzle flash très bref
-  const flash = new THREE.PointLight(0xffaa33, 2.2, 2.5);
-  flash.position.copy(muzzle);
-  scene.add(flash);
-  setTimeout(()=>scene.remove(flash), 45);
-}
-
-const shootBtn = document.getElementById('shootBtn');
-shootBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); shoot(); }, {passive:false});
-shootBtn.addEventListener('mousedown', (e)=>{ e.preventDefault(); shoot(); });
-
-// -------------------- BOUCLE --------------------
-const clock = new THREE.Clock();
-const SPEED = 6.0; // m/s approx
-
-function animate(){
-  requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), 0.033);
-
-  // Déplacement basé sur le yaw (orientation horizontale)
-  // Vecteurs monde à partir du yaw (pas du pitch).
-  const forward = new THREE.Vector3(0,0,-1).applyQuaternion(yaw.quaternion); forward.y = 0; forward.normalize();
-  const right   = new THREE.Vector3(1,0, 0).applyQuaternion(yaw.quaternion); right.y = 0; right.normalize();
-
-  // Stick → avant/arrière (moveZ), gauche/droite (moveX)
-  yaw.position.add(forward.multiplyScalar(moveZ * SPEED * dt));
-  yaw.position.add(right.multiplyScalar(  moveX * SPEED * dt));
-
-  // Verrouille la hauteur (pas de POV sol)
-  yaw.position.y = CAM_HEIGHT;
-
-  // Mises à jour des balles (collision naïve avec cibles)
-  for (let i = bullets.length-1; i>=0; i--){
-    const b = bullets[i];
-    b.position.addScaledVector(b.userData.vel, dt / (1/60)); // homogénéiser vitesse
-    b.userData.life -= dt;
-    // hit test simple
-    let hit = false;
-    for (let j=targets.length-1; j>=0; j--){
-      const t = targets[j];
-      if (b.position.distanceTo(t.position) < 0.6){
-        t.material.color.set(0x69ff69);
-        hit = true; break;
-      }
-    }
-    if (hit || b.userData.life <= 0){
-      scene.remove(b); bullets.splice(i,1);
-    }
-  }
-
-  renderer.render(scene, camera);
-}
-animate();
-
-// -------------------- RESIZE --------------------
-addEventListener('resize', ()=>{
-  camera.aspect = innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
-</script>
+        // Instructions de démarrage
+        window.addEventListener('load', () => {
+            console.log('CS:GO Mobile FPS chargé!');
+            console.log('Utilisez les joysticks virtuels pour vous déplacer et viser');
+            console.log('Touchez l\'écran pour tirer');
+        });
+    </script>
 </body>
 </html>
+
+
 
 
 
