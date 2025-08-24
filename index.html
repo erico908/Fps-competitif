@@ -41,7 +41,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            perspective: 1000px;
+            perspective: 1200px;
             transform-style: preserve-3d;
         }
 
@@ -49,21 +49,39 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 6px;
-            height: 6px;
+            width: 28px;
+            height: 28px;
             transform: translate(-50%, -50%);
             pointer-events: none;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid rgba(255, 255, 255, 0.95);
             border-radius: 50%;
-            box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+
+        .crosshair::before, .crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .crosshair::before {
+            width: 2px;
+            height: 14px;
+        }
+
+        .crosshair::after {
+            width: 14px;
+            height: 2px;
         }
 
         /* Environnement 3D */
         .wall {
             position: absolute;
             background: linear-gradient(135deg, #2c3e50, #34495e);
-            border: 1px solid #4a6572;
+            border: 1px solid #5d6d7e;
             box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
             transform-style: preserve-3d;
         }
@@ -72,26 +90,22 @@
             position: absolute;
             background: #2a2a2a;
             background-image: 
-                linear-gradient(45deg, #333 25%, transparent 25%),
-                linear-gradient(-45deg, #333 25%, transparent 25%),
-                linear-gradient(45deg, transparent 75%, #333 75%),
-                linear-gradient(-45deg, transparent 75%, #333 75%);
-            background-size: 40px 40px;
-            background-position: 0 0, 0 20px, 20px -20px, -20px 0px;
+                linear-gradient(#333 1px, transparent 1px),
+                linear-gradient(90deg, #333 1px, transparent 1px);
+            background-size: 50px 50px;
             transform-style: preserve-3d;
         }
 
         .ceiling {
             position: absolute;
-            background: #1a1a1a;
+            background: linear-gradient(135deg, #1a1a1a, #252525);
             transform-style: preserve-3d;
         }
 
         .door {
             position: absolute;
-            background: linear-gradient(45deg, #8b4513, #a0522d);
+            background: linear-gradient(135deg, #8b4513, #a0522d);
             border: 3px solid #654321;
-            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
             transform-style: preserve-3d;
         }
 
@@ -103,14 +117,11 @@
             transform-style: preserve-3d;
         }
 
-        .crate::before {
-            content: '';
+        .pillar {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            bottom: 10px;
-            border: 2px solid rgba(0, 0, 0, 0.3);
+            background: linear-gradient(135deg, #7f8c8d, #95a5a6);
+            border: 2px solid #5d6d7e;
+            transform-style: preserve-3d;
         }
 
         /* Interface HUD */
@@ -126,12 +137,12 @@
 
         .health-bar {
             position: absolute;
-            top: 20px;
-            left: 20px;
+            top: 25px;
+            left: 25px;
             width: 200px;
             height: 30px;
-            background: rgba(0, 0, 0, 0.8);
-            border: 2px solid #444;
+            background: rgba(0, 0, 0, 0.85);
+            border: 3px solid #444;
             border-radius: 15px;
             overflow: hidden;
         }
@@ -139,116 +150,81 @@
         .health-fill {
             height: 100%;
             background: linear-gradient(90deg, #ff4444, #ff6b6b);
-            border-radius: 13px;
+            border-radius: 12px;
             transition: width 0.3s ease;
-            box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.3);
         }
 
         .ammo-display {
             position: absolute;
-            bottom: 25px;
-            right: 25px;
-            background: rgba(0, 0, 0, 0.9);
+            bottom: 30px;
+            right: 30px;
+            background: rgba(0, 0, 0, 0.85);
             padding: 15px 20px;
             border-radius: 15px;
             font-size: 22px;
             font-weight: bold;
             text-align: center;
-            border: 2px solid #555;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            border: 3px solid #444;
         }
 
         .weapon-icon {
             position: absolute;
             bottom: 100px;
-            right: 25px;
+            right: 30px;
             width: 100px;
             height: 100px;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.85);
             border-radius: 15px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 32px;
-            border: 2px solid #555;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            border: 3px solid #444;
         }
 
-        /* Joystick dynamique */
-        #dynamic-joystick {
+        /* Zones de contrôle */
+        #left-zone {
             position: absolute;
-            width: 120px;
-            height: 120px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s ease;
+            top: 0;
+            left: 0;
+            width: 50%;
+            height: 100%;
             z-index: 3000;
         }
 
-        .joystick-base {
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.15);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            position: relative;
-            backdrop-filter: blur(5px);
-        }
-
-        .joystick-handle {
-            width: 50px;
-            height: 50px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 50%;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            transition: transform 0.1s ease;
-            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.4);
-        }
-
-        /* Zone de contrôle caméra */
-        #camera-control-area {
+        #right-zone {
             position: absolute;
             top: 0;
             right: 0;
             width: 50%;
             height: 100%;
-            z-index: 2500;
-        }
-
-        /* Boutons d'action */
-        .action-button {
-            position: absolute;
-            width: 80px;
-            height: 80px;
-            background: rgba(255, 255, 255, 0.15);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            color: white;
             z-index: 3000;
-            backdrop-filter: blur(5px);
-            transition: all 0.2s ease;
         }
 
-        .action-button:active {
-            background: rgba(255, 255, 255, 0.25);
-            transform: scale(0.95);
+        /* Joystick dynamique */
+        .joystick {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            transform: translate(-50%, -50%);
+            display: none;
+            z-index: 3100;
         }
 
-        #jump-btn {
-            bottom: 180px;
-            right: 25px;
-        }
-
-        #reload-btn {
-            bottom: 25px;
-            right: 120px;
+        .joystick-handle {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s ease;
+            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.4);
         }
 
         /* Ennemis */
@@ -261,7 +237,6 @@
             border-radius: 8px;
             transform-style: preserve-3d;
             transition: all 0.2s ease;
-            box-shadow: 0 5px 25px rgba(255, 0, 0, 0.3);
         }
 
         .enemy::before {
@@ -271,25 +246,24 @@
             left: 15px;
             width: 25px;
             height: 25px;
-            background: #222;
+            background: #333;
             border-radius: 50%;
-            border: 2px solid #111;
+            border: 2px solid #222;
         }
 
         /* Effets */
         .muzzle-flash {
             position: absolute;
             top: 50%;
-            right: 150px;
-            width: 50px;
-            height: 50px;
+            right: 130px;
+            width: 45px;
+            height: 45px;
             background: radial-gradient(circle, #ffff00 0%, #ff5500 50%, transparent 70%);
             border-radius: 50%;
             opacity: 0;
             pointer-events: none;
             z-index: 1500;
             transform: translateY(-50%);
-            filter: blur(2px);
         }
 
         .bullet-hole {
@@ -300,8 +274,7 @@
             border-radius: 50%;
             pointer-events: none;
             z-index: 900;
-            border: 2px solid #555;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            border: 1px solid #555;
         }
 
         /* Menu */
@@ -323,7 +296,7 @@
             font-size: 3.5em;
             font-weight: bold;
             margin-bottom: 40px;
-            text-shadow: 0 0 40px rgba(0, 150, 255, 0.9);
+            text-shadow: 0 0 40px rgba(0, 150, 255, 1);
             background: linear-gradient(45deg, #00b4db, #0083b0, #00b4db);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -342,7 +315,6 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
 
         .game-button:active {
@@ -361,14 +333,14 @@
 
         /* Animations */
         @keyframes glow {
-            from { text-shadow: 0 0 20px rgba(0, 150, 255, 0.7); }
-            to { text-shadow: 0 0 50px rgba(0, 200, 255, 1); }
+            from { text-shadow: 0 0 25px rgba(0, 150, 255, 0.8); }
+            to { text-shadow: 0 0 50px rgba(0, 200, 255, 1.2); }
         }
 
         @keyframes shoot {
             0% { opacity: 1; transform: translateY(-50%) scale(1); }
             50% { opacity: 0.8; transform: translateY(-50%) scale(1.4); }
-            100% { opacity: 0; transform: translateY(-50%) scale(0.7); }
+            100% { opacity: 0; transform: translateY(-50%) scale(0.9); }
         }
 
         @keyframes damage {
@@ -385,11 +357,8 @@
         @media (max-width: 768px) {
             .game-title { font-size: 2.5em; }
             .game-button { padding: 18px 35px; font-size: 1.2em; }
-            .ammo-display { font-size: 20px; padding: 12px 18px; }
-            .weapon-icon { width: 85px; height: 85px; font-size: 28px; }
-            #dynamic-joystick { width: 100px; height: 100px; }
+            .joystick { width: 100px; height: 100px; }
             .joystick-handle { width: 40px; height: 40px; }
-            .action-button { width: 70px; height: 70px; font-size: 24px; }
         }
     </style>
 </head>
@@ -400,15 +369,15 @@
             <h1 class="game-title">CS:GO MOBILE</h1>
             <p style="margin-bottom: 30px; color: #ddd; text-align: center; font-size: 1.2em;">
                 FPS TACTIQUE - MODE MULTIJOUEUR<br>
-                <span style="font-size: 0.9em; color: #bbb;">Contrôles optimisés pour mobile</span>
+                <span style="font-size: 0.9em; color: #bbb;">Contrôles professionnels pour mobile</span>
             </p>
             <button class="game-button" onclick="startGame()">JOUER EN LIGNE</button>
             <button class="game-button" onclick="startPractice()">MODE ENTRAÎNEMENT</button>
             <div class="controls-info">
-                🎮 <strong>Mouvements:</strong> Touchez côté gauche pour faire apparaître le joystick<br>
-                🔍 <strong>Visée:</strong> Glissez côté droit pour contrôler la caméra<br>
-                🔫 <strong>Tir:</strong> Tap n'importe où pour tirer<br>
-                ⚡ <strong>Saut/Recharger:</strong> Boutons en bas à droite
+                🎮 GAUCHE: Joystick de déplacement (apparaît où vous touchez)<br>
+                🔍 DROITE: Glissez pour regarder autour de vous<br>
+                🔫 TIR: Touchez n'importe où pour tirer<br>
+                ⚡ SAUT/RELOAD: Boutons à droite
             </div>
         </div>
 
@@ -427,19 +396,14 @@
             <div class="weapon-icon">🔫</div>
         </div>
 
+        <!-- Zones de contrôle tactiles -->
+        <div id="left-zone"></div>
+        <div id="right-zone"></div>
+
         <!-- Joystick dynamique -->
-        <div id="dynamic-joystick">
-            <div class="joystick-base">
-                <div class="joystick-handle" id="joystick-handle"></div>
-            </div>
+        <div class="joystick" id="dynamic-joystick">
+            <div class="joystick-handle"></div>
         </div>
-
-        <!-- Zone de contrôle caméra -->
-        <div id="camera-control-area"></div>
-
-        <!-- Boutons d'action -->
-        <div class="action-button" id="jump-btn">⬆️</div>
-        <div class="action-button" id="reload-btn">🔃</div>
 
         <!-- Effets -->
         <div class="muzzle-flash" id="muzzle-flash"></div>
@@ -450,9 +414,9 @@
             constructor() {
                 this.gameActive = false;
                 this.player = {
-                    x: 0,
+                    x: 200,
                     y: 0,
-                    z: 0,
+                    z: 200,
                     rotationX: 0,
                     rotationY: 0,
                     health: 100,
@@ -470,146 +434,148 @@
                     moveY: 0,
                     lookX: 0,
                     lookY: 0,
-                    joystickActive: false,
-                    joystickPosition: { x: 0, y: 0 }
+                    lastTouchX: 0,
+                    lastTouchY: 0
                 };
                 
+                this.joystickActive = false;
+                this.joystickPosition = { x: 0, y: 0 };
+                
                 this.setupEventListeners();
-                this.generateMap();
+                this.generateRealMap();
             }
             
             setupEventListeners() {
-                const gameContainer = document.getElementById('game-container');
+                const leftZone = document.getElementById('left-zone');
+                const rightZone = document.getElementById('right-zone');
                 const joystick = document.getElementById('dynamic-joystick');
-                const joystickHandle = document.getElementById('joystick-handle');
-                const cameraArea = document.getElementById('camera-control-area');
+                const joystickHandle = joystick.querySelector('.joystick-handle');
                 
-                // Contrôle mouvement (côté gauche)
-                gameContainer.addEventListener('touchstart', (e) => {
+                // Zone gauche - Joystick de déplacement
+                leftZone.addEventListener('touchstart', (e) => {
                     if (!this.gameActive) return;
                     
                     const touch = e.touches[0];
-                    const x = touch.clientX;
-                    const y = touch.clientY;
+                    this.joystickActive = true;
+                    this.joystickPosition = {
+                        x: touch.clientX,
+                        y: touch.clientY
+                    };
                     
-                    // Si touché dans le côté gauche (premier 40% de l'écran)
-                    if (x < window.innerWidth * 0.4) {
-                        this.controls.joystickActive = true;
-                        this.controls.joystickPosition = { x, y };
-                        
-                        // Afficher le joystick à la position du touché
-                        joystick.style.left = (x - 60) + 'px';
-                        joystick.style.top = (y - 60) + 'px';
-                        joystick.style.opacity = '1';
-                        
-                        e.preventDefault();
-                    }
-                });
-                
-                gameContainer.addEventListener('touchmove', (e) => {
-                    if (!this.gameActive) return;
-                    
-                    for (let i = 0; i < e.changedTouches.length; i++) {
-                        const touch = e.changedTouches[i];
-                        const x = touch.clientX;
-                        const y = touch.clientY;
-                        
-                        // Contrôle caméra (côté droit)
-                        if (x > window.innerWidth * 0.6) {
-                            const deltaX = touch.movementX || 0;
-                            const deltaY = touch.movementY || 0;
-                            
-                            this.controls.lookX = deltaX * 0.5;
-                            this.controls.lookY = deltaY * 0.5;
-                        }
-                        
-                        // Contrôle mouvement (joystick)
-                        if (this.controls.joystickActive) {
-                            const maxDistance = 40;
-                            const dx = x - this.controls.joystickPosition.x;
-                            const dy = y - this.controls.joystickPosition.y;
-                            const distance = Math.min(Math.sqrt(dx * dx + dy * dy), maxDistance);
-                            const angle = Math.atan2(dy, dx);
-                            
-                            const limitedX = Math.cos(angle) * distance;
-                            const limitedY = Math.sin(angle) * distance;
-                            
-                            joystickHandle.style.transform = `translate(${limitedX}px, ${limitedY}px)`;
-                            
-                            // Normaliser les valeurs entre -1 et 1
-                            this.controls.moveX = limitedX / maxDistance;
-                            this.controls.moveY = limitedY / maxDistance;
-                        }
-                    }
+                    // Afficher le joystick à la position du touché
+                    joystick.style.display = 'block';
+                    joystick.style.left = this.joystickPosition.x + 'px';
+                    joystick.style.top = this.joystickPosition.y + 'px';
                     
                     e.preventDefault();
                 });
                 
-                gameContainer.addEventListener('touchend', (e) => {
-                    if (this.controls.joystickActive) {
-                        this.controls.joystickActive = false;
-                        this.controls.moveX = 0;
-                        this.controls.moveY = 0;
-                        joystick.style.opacity = '0';
-                        joystickHandle.style.transform = 'translate(0, 0)';
-                    }
+                leftZone.addEventListener('touchmove', (e) => {
+                    if (!this.joystickActive) return;
+                    
+                    const touch = e.touches[0];
+                    const deltaX = touch.clientX - this.joystickPosition.x;
+                    const deltaY = touch.clientY - this.joystickPosition.y;
+                    
+                    // Limiter la distance du joystick
+                    const distance = Math.min(Math.sqrt(deltaX * deltaX + deltaY * deltaY), 50);
+                    const angle = Math.atan2(deltaY, deltaX);
+                    
+                    const limitedX = Math.cos(angle) * distance;
+                    const limitedY = Math.sin(angle) * distance;
+                    
+                    // Déplacer le handle
+                    joystickHandle.style.transform = `translate(-50%, -50%) translate(${limitedX}px, ${limitedY}px)`;
+                    
+                    // Contrôles normalisés
+                    this.controls.moveX = limitedX / 50;
+                    this.controls.moveY = limitedY / 50;
+                    
+                    e.preventDefault();
+                });
+                
+                leftZone.addEventListener('touchend', () => {
+                    this.joystickActive = false;
+                    joystick.style.display = 'none';
+                    joystickHandle.style.transform = 'translate(-50%, -50%)';
+                    this.controls.moveX = 0;
+                    this.controls.moveY = 0;
+                });
+                
+                // Zone droite - Contrôle de la caméra
+                rightZone.addEventListener('touchstart', (e) => {
+                    if (!this.gameActive) return;
+                    
+                    const touch = e.touches[0];
+                    this.controls.lastTouchX = touch.clientX;
+                    this.controls.lastTouchY = touch.clientY;
+                    
+                    e.preventDefault();
+                });
+                
+                rightZone.addEventListener('touchmove', (e) => {
+                    if (!this.gameActive) return;
+                    
+                    const touch = e.touches[0];
+                    const deltaX = touch.clientX - this.controls.lastTouchX;
+                    const deltaY = touch.clientY - this.controls.lastTouchY;
+                    
+                    // Contrôle de la rotation
+                    this.player.rotationY -= deltaX * 0.3;
+                    this.player.rotationX = Math.max(Math.min(this.player.rotationX - deltaY * 0.2, 60), -60);
+                    
+                    this.controls.lastTouchX = touch.clientX;
+                    this.controls.lastTouchY = touch.clientY;
+                    
+                    e.preventDefault();
                 });
                 
                 // Tir sur tout l'écran
-                gameContainer.addEventListener('touchstart', (e) => {
+                document.addEventListener('touchstart', (e) => {
                     if (this.gameActive) {
                         this.shoot();
                         e.preventDefault();
                     }
                 });
-                
-                // Boutons d'action
-                document.getElementById('jump-btn').addEventListener('touchstart', () => {
-                    // Simulation de saut
-                    this.player.y = 50;
-                    setTimeout(() => { this.player.y = 0; }, 300);
-                });
-                
-                document.getElementById('reload-btn').addEventListener('touchstart', () => {
-                    this.reload();
-                });
             }
             
-            generateMap() {
+            generateRealMap() {
                 const fpsView = document.getElementById('fps-view');
                 
                 // Sol principal
-                this.createFloor(-1000, -1000, 2000, 2000);
-                
-                // Murs de la salle principale
-                this.createWall(-800, 400, -800, 1600, 800, 50); // Mur nord
-                this.createWall(-800, 400, 750, 1600, 800, 50);  // Mur sud
-                this.createWall(-800, 400, -800, 50, 800, 1550); // Mur ouest
-                this.createWall(750, 400, -800, 50, 800, 1550);  // Mur est
+                this.createFloor(-1000, -50, -1000, 2000, 2000);
                 
                 // Plafond
-                this.createCeiling(-800, 800, -800, 1600, 1600);
+                this.createCeiling(-1000, 350, -1000, 2000, 2000);
                 
-                // Obstacles et structures
-                this.createCrate(-400, 50, -400, 100, 100, 100);
-                this.createCrate(300, 50, 300, 120, 120, 120);
-                this.createCrate(0, 25, 0, 80, 50, 80);
+                // Murs extérieurs
+                this.createWall(-1000, 150, -1000, 2000, 400, 50); // Mur nord
+                this.createWall(-1000, 150, 950, 2000, 400, 50);   // Mur sud
+                this.createWall(-1000, 150, -1000, 50, 400, 2000); // Mur ouest
+                this.createWall(950, 150, -1000, 50, 400, 2000);   // Mur est
+                
+                // Couloirs et pièces
+                this.createWall(-500, 150, -500, 100, 400, 1000);  // Mur central vertical
+                this.createWall(-500, 150, 0, 1000, 400, 100);     // Mur central horizontal
                 
                 // Portes
-                this.createDoor(-200, 200, -800, 100, 400, 50);
-                this.createDoor(200, 200, 750, 100, 400, 50);
+                this.createDoor(-500, 75, 0, 80, 150, 20);
+                this.createDoor(0, 75, -500, 20, 150, 80);
+                
+                // Caisses et obstacles
+                this.createCrate(-700, 50, -700, 80, 100, 80);
+                this.createCrate(-300, 50, -700, 80, 100, 80);
+                this.createCrate(700, 50, 700, 80, 100, 80);
+                this.createCrate(300, 50, 700, 80, 100, 80);
+                
+                // Piliers
+                this.createPillar(-800, 175, -800, 40, 350, 40);
+                this.createPillar(800, 175, 800, 40, 350, 40);
+                this.createPillar(-800, 175, 800, 40, 350, 40);
+                this.createPillar(800, 175, -800, 40, 350, 40);
                 
                 // Créer des ennemis
                 this.spawnEnemies(6);
-            }
-            
-            createFloor(x, z, width, depth) {
-                const floor = document.createElement('div');
-                floor.className = 'floor';
-                floor.style.width = width + 'px';
-                floor.style.height = depth + 'px';
-                floor.style.transform = `translate3d(${x}px, 800px, ${z}px) rotateX(90deg)`;
-                document.getElementById('fps-view').appendChild(floor);
             }
             
             createWall(x, y, z, width, height, depth) {
@@ -619,6 +585,16 @@
                 wall.style.height = height + 'px';
                 wall.style.transform = `translate3d(${x}px, ${y - height/2}px, ${z}px)`;
                 document.getElementById('fps-view').appendChild(wall);
+                this.environment.push({ element: wall, x, y, z, width, height, depth });
+            }
+            
+            createFloor(x, y, z, width, depth) {
+                const floor = document.createElement('div');
+                floor.className = 'floor';
+                floor.style.width = width + 'px';
+                floor.style.height = depth + 'px';
+                floor.style.transform = `translate3d(${x}px, ${y}px, ${z}px) rotateX(90deg)`;
+                document.getElementById('fps-view').appendChild(floor);
             }
             
             createCeiling(x, y, z, width, depth) {
@@ -626,7 +602,7 @@
                 ceiling.className = 'ceiling';
                 ceiling.style.width = width + 'px';
                 ceiling.style.height = depth + 'px';
-                ceiling.style.transform = `translate3d(${x}px, ${y - 400}px, ${z}px) rotateX(90deg)`;
+                ceiling.style.transform = `translate3d(${x}px, ${y}px, ${z}px) rotateX(90deg)`;
                 document.getElementById('fps-view').appendChild(ceiling);
             }
             
@@ -644,56 +620,67 @@
                 crate.className = 'crate';
                 crate.style.width = width + 'px';
                 crate.style.height = height + 'px';
-                crate.style.transform = `translate3d(${x}px, ${y - height/2}px, ${z}px)`;
+                crate.style.transform = `translate3d(${x}px, ${y}px, ${z}px)`;
                 document.getElementById('fps-view').appendChild(crate);
+            }
+            
+            createPillar(x, y, z, width, height, depth) {
+                const pillar = document.createElement('div');
+                pillar.className = 'pillar';
+                pillar.style.width = width + 'px';
+                pillar.style.height = height + 'px';
+                pillar.style.transform = `translate3d(${x}px, ${y - height/2}px, ${z}px)`;
+                document.getElementById('fps-view').appendChild(pillar);
             }
             
             spawnEnemies(count) {
                 const positions = [
-                    { x: -500, z: -500 }, { x: 500, z: -500 },
-                    { x: -500, z: 500 }, { x: 500, z: 500 },
-                    { x: 0, z: -600 }, { x: 0, z: 600 }
+                    { x: -700, z: -700 },
+                    { x: -300, z: -700 },
+                    { x: 700, z: 700 },
+                    { x: 300, z: 700 },
+                    { x: -700, z: 700 },
+                    { x: 700, z: -700 }
                 ];
                 
                 for (let i = 0; i < count; i++) {
                     const pos = positions[i % positions.length];
-                    const enemy = document.createElement('div');
-                    enemy.className = 'enemy';
-                    
-                    enemy.style.transform = `translate3d(${pos.x}px, -50px, ${pos.z}px)`;
-                    document.getElementById('fps-view').appendChild(enemy);
-                    
-                    this.enemies.push({
-                        element: enemy,
-                        x: pos.x,
-                        y: 0,
-                        z: pos.z,
-                        health: 100,
-                        active: true
-                    });
+                    this.createEnemy(pos.x, 0, pos.z);
                 }
+            }
+            
+            createEnemy(x, y, z) {
+                const enemy = document.createElement('div');
+                enemy.className = 'enemy';
+                enemy.style.transform = `translate3d(${x}px, ${y}px, ${z}px)`;
+                document.getElementById('fps-view').appendChild(enemy);
+                
+                this.enemies.push({
+                    element: enemy,
+                    x: x,
+                    y: y,
+                    z: z,
+                    health: 100,
+                    active: true
+                });
             }
             
             update() {
                 if (!this.gameActive) return;
                 
-                // Mise à jour de la rotation de la caméra
-                this.player.rotationY += this.controls.lookX;
-                this.player.rotationX = Math.max(Math.min(this.player.rotationX + this.controls.lookY, 60), -60);
-                
-                // Mise à jour du mouvement du joueur
-                const moveSpeed = this.player.speed;
+                // Mouvement du joueur
+                const moveSpeed = 5;
                 const moveX = this.controls.moveX * moveSpeed;
                 const moveZ = this.controls.moveY * moveSpeed;
                 
-                // Conversion des mouvements en fonction de la rotation
+                // Conversion des mouvements selon la rotation
                 const rad = this.player.rotationY * Math.PI / 180;
                 this.player.x += moveX * Math.cos(rad) + moveZ * Math.sin(rad);
                 this.player.z += moveZ * Math.cos(rad) - moveX * Math.sin(rad);
                 
                 // Limites de la map
-                this.player.x = Math.max(Math.min(this.player.x, 700), -700);
-                this.player.z = Math.max(Math.min(this.player.z, 700), -700);
+                this.player.x = Math.max(Math.min(this.player.x, 900), -900);
+                this.player.z = Math.max(Math.min(this.player.z, 900), -900);
                 
                 // Mise à jour de la caméra
                 this.updateCamera();
@@ -704,10 +691,6 @@
                 // Mise à jour des effets
                 this.updateEffects();
                 
-                // Réinitialiser les contrôles de regard
-                this.controls.lookX = 0;
-                this.controls.lookY = 0;
-                
                 requestAnimationFrame(() => this.update());
             }
             
@@ -716,14 +699,14 @@
                 fpsView.style.transform = `
                     rotateX(${this.player.rotationX}deg)
                     rotateY(${this.player.rotationY}deg)
-                    translate3d(${-this.player.x}px, ${-this.player.y}px, ${-this.player.z}px)
+                    translate3d(${-this.player.x}px, 0, ${-this.player.z}px)
                 `;
             }
             
             updateEnemies() {
                 this.enemies.forEach(enemy => {
                     if (enemy.active) {
-                        // IA simple: se déplacer vers le joueur
+                        // IA simple
                         const dx = this.player.x - enemy.x;
                         const dz = this.player.z - enemy.z;
                         const distance = Math.sqrt(dx * dx + dz * dz);
@@ -733,13 +716,13 @@
                             enemy.z += (dz / distance) * 2;
                         }
                         
-                        enemy.element.style.transform = `translate3d(${enemy.x}px, -50px, ${enemy.z}px)`;
+                        enemy.element.style.transform = `translate3d(${enemy.x}px, 0, ${enemy.z}px)`;
                     }
                 });
             }
             
             updateEffects() {
-                // Nettoyer les impacts de balles anciens
+                // Nettoyer les impacts de balles
                 this.bulletHoles = this.bulletHoles.filter(hole => {
                     hole.lifetime--;
                     if (hole.lifetime <= 0) {
@@ -767,10 +750,10 @@
                     muzzleFlash.style.animation = 'shoot 0.1s forwards';
                 }, 10);
                 
-                // Créer un impact de balle
+                // Impact de balle
                 this.createBulletHole();
                 
-                // Vérifier les collisions avec les ennemis
+                // Vérifier les collisions
                 this.checkHit();
             }
             
@@ -779,11 +762,11 @@
                 const hole = document.createElement('div');
                 hole.className = 'bullet-hole';
                 
-                // Position aléatoire autour du centre pour simuler le recul
-                const offsetX = (Math.random() - 0.5) * 80;
-                const offsetY = (Math.random() - 0.5) * 80;
+                const distance = 500 + Math.random() * 100;
+                const offsetX = (Math.random() - 0.5) * 50;
+                const offsetY = (Math.random() - 0.5) * 30;
                 
-                hole.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 600px)`;
+                hole.style.transform = `translate3d(${offsetX}px, ${offsetY}px, ${distance}px)`;
                 fpsView.appendChild(hole);
                 
                 this.bulletHoles.push({
@@ -803,7 +786,7 @@
                             enemy.health -= 30;
                             if (enemy.health <= 0) {
                                 enemy.active = false;
-                                enemy.element.style.opacity = '0.4';
+                                enemy.element.style.opacity = '0.3';
                                 enemy.element.style.background = '#555';
                             }
                         }
@@ -831,6 +814,10 @@
                 this.gameActive = true;
                 document.getElementById('start-screen').style.display = 'none';
                 this.update();
+                
+                // Position initiale de la caméra
+                this.player.rotationY = -45;
+                this.updateCamera();
             }
         }
 
@@ -838,30 +825,29 @@
 
         function startGame() {
             game.start();
-            
-            // Simulation de connexion multijoueur
             setTimeout(() => {
                 if (game.gameActive) {
-                    alert('✅ Connecté au serveur multijoueur!\n🎮 Joueurs en ligne: 12/16\n🗺️ Map: Dust II');
+                    alert('🚀 Connecté au serveur multijoueur!\n👥 Joueurs en ligne: 12/16\n🗺️ Map: Dust II');
                 }
             }, 1500);
         }
 
         function startPractice() {
             game.start();
-            alert('🎯 Mode entraînement activé!\n💀 Affrontez 6 bots pour vous entraîner.');
+            alert('🎯 Mode entraînement activé!\n🤖 Affrontez 6 bots pour vous perfectionner.');
         }
 
         // Instructions
         window.addEventListener('load', () => {
-            console.log('CS:GO Mobile FPS chargé - Contrôles réalistes activés!');
-            console.log('Côté gauche: Joystick de mouvement dynamique');
-            console.log('Côté droit: Glisser pour contrôler la caméra');
-            console.log('Tap: Tirer');
+            console.log('CS:GO Mobile FPS - Contrôles professionnels chargés!');
+            console.log('🎮 Gauche: Joystick dynamique');
+            console.log('🔍 Droite: Glissement pour la caméra');
+            console.log('🔫 Tir: Tap anywhere');
         });
     </script>
 </body>
 </html>
+
 
 
 
