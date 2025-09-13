@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>FPS 3D avec Three.js</title>
+    <style>
+      body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; }
+      canvas { display: block; }
+      #hud {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        pointer-events: none;
+      }
+      #crosshair {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 32px; height: 32px;
+      }
+      #stats {
+        position: absolute; top: 10px; left: 10px; color: white; font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud">
+      <img id="crosshair" src="./public/crosshair.png" />
+      <div id="stats">Vie: 100 | Munitions: 30</div>
+    </div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
